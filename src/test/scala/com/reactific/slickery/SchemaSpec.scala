@@ -158,8 +158,8 @@ class SchemaSpec extends Specification with LoggingHelper {
         import schema.dbConfig.db
         val create_future = schema.create()
         Await.result(create_future, 5.seconds)
+        val t1 = TestUseable(1,name="one"); val t2 = TestUseable(2,name="two"); val t3 = TestUseable(3,name="three")
         val res = db.run {
-          val t1 = TestUseable(1,name="one"); val t2 = TestUseable(2,name="two"); val t3 = TestUseable(3,name="three")
           dbio.DBIO.seq(
             schema.As.create(t1),
             schema.As.create(t2),
@@ -175,6 +175,17 @@ class SchemaSpec extends Specification with LoggingHelper {
           }
         }
         Await.result(res,5.seconds)
+        val res2 = db. run {
+          schema.As.delete(t1.id).flatMap { n =>
+            n must beEqualTo(1)
+            schema.A2B.findAssociatedB(1).map { s : Seq[Long] => asResult ( s must beEqualTo( Vector.empty[Long] )) }
+          }
+        }
+        Await.result(res2, 5.seconds)
+        val res3 = db.run {
+          schema.A2B.findAssociatedB(2).map { s : Seq[Long] => asResult ( s must beEqualTo( Vector(3) ) ) }
+        }
+        Await.result(res3, 5.seconds)
     }
   }
 }

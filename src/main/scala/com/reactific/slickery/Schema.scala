@@ -105,7 +105,8 @@ abstract class Schema(val schemaName: String, val config_name: String, config : 
 
   trait StorableQuery[S <: Storable, T <:StorableRow[S]] extends CRUDQueries[S,Long,T] {
     self : TableQuery[T] =>
-    lazy val byIdQuery = Compiled { idToFind : Rep[Long] => this.filter(_.id === idToFind).distinct }
+    val query = self
+    lazy val byIdQuery = Compiled { idToFind : Rep[Long] => this.filter(_.id === idToFind) }
     def byId(idToFind : Long) = byIdQuery(idToFind).result.headOption
 
     override def create(entity: S) = (this returning this.map(_.id)) += entity
@@ -203,33 +204,32 @@ abstract class Schema(val schemaName: String, val config_name: String, config : 
     with ExpirableQuery[S,T] with NameableQuery[S,T] with DescribableQuery[S,T] {
   }
 
-
   /**
    * The base class of all correlation tables.
    * This allows many-to-many relationships to be established by simply listing the pairs of IDs
    */
   abstract class ManyToManyRow[
-    A <: Useable, TA <: UseableRow[A],
-    B <: Useable, TB <: UseableRow[B]](
+    A <: Storable, TA <: StorableRow[A],
+    B <: Storable, TB <: StorableRow[B]](
     tag : Tag, tableName:String,
-    nameA: String, queryA: UseableQuery[A,TA],
-    nameB: String, queryB: UseableQuery[B,TB]) extends TableRow[(Long,Long)](tag, tableName) {
+    nameA: String, queryA: StorableQuery[A,TA],
+    nameB: String, queryB: StorableQuery[B,TB]) extends TableRow[(Long,Long)](tag, tableName) {
 
     def a_id = column[Long](nm(nameA + "_id"))
 
     def b_id = column[Long](nm(nameB + "_id"))
 
-    def a_fkey = foreignKey(fkn(nameA), a_id, queryA)(_.id, onDelete = ForeignKeyAction.Cascade)
+    def a_fkey = foreignKey(fkn(nameA), a_id, queryA.query)(_.id, onDelete = ForeignKeyAction.Cascade)
 
-    def b_fkey = foreignKey(fkn(nameB), b_id, queryB)(_.id, onDelete = ForeignKeyAction.Cascade)
+    def b_fkey = foreignKey(fkn(nameB), b_id, queryB.query)(_.id, onDelete = ForeignKeyAction.Cascade)
 
     def a_b_uniqueness = index(idx(nameA + "_" + nameB), (a_id, b_id), unique = true)
     def * = (a_id, b_id)
   }
 
   abstract class ManyToManyQuery[
-    A <: Useable, TA <: UseableRow[A],
-    B <: Useable, TB <: UseableRow[B],
+    A <: Storable, TA <: StorableRow[A],
+    B <: Storable, TB <: StorableRow[B],
     T <: ManyToManyRow[A,TA,B,TB]](cons: Tag => T) extends TableQuery[T](cons) {
     lazy val findAsQuery = Compiled { bId : Rep[Long] => this.filter (_.b_id === bId ) }
     lazy val findBsQuery = Compiled { aId : Rep[Long] => this.filter (_.a_id === aId ) }
