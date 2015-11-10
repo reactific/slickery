@@ -1,28 +1,34 @@
 /**********************************************************************************************************************
-  *                                                                                                                    *
-  * Copyright (c) 2013, Reid Spencer and viritude llc. All Rights Reserved.                                            *
-  *                                                                                                                    *
-  * Scrupal is free software: you can redistribute it and/or modify it under the terms                                 *
-  * of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License,   *
-  * or (at your option) any later version.                                                                             *
-  *                                                                                                                    *
-  * Scrupal is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied      *
-  * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more      *
-  * details.                                                                                                           *
-  *                                                                                                                    *
-  * You should have received a copy of the GNU General Public License along with Scrupal. If not, see either:          *
-  * http://www.gnu.org/licenses or http://opensource.org/licenses/GPL-3.0.                                             *
-  **********************************************************************************************************************/
+ *                                                                                                                    *
+ * Copyright (c) 2013, Reactific Software LLC. All Rights Reserved.                                                   *
+ *                                                                                                                    *
+ * Scrupal is free software: you can redistribute it and/or modify it under the terms                                 *
+ * of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License,   *
+ * or (at your option) any later version.                                                                             *
+ *                                                                                                                    *
+ * Scrupal is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied      *
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more      *
+ * details.                                                                                                           *
+ *                                                                                                                    *
+ * You should have received a copy of the GNU General Public License along with Scrupal. If not, see either:          *
+ * http://www.gnu.org/licenses or http://opensource.org/licenses/GPL-3.0.                                             *
+ **********************************************************************************************************************/
 
 package com.reactific.slickery
 
+import java.sql.{Clob, Timestamp}
+import java.time.{Duration, Instant}
+
 import com.reactific.helpers.LoggingHelper
+import com.typesafe.config.{Config, ConfigFactory}
+import play.api.libs.json.{Json, JsObject}
 import slick.backend.DatabaseConfig
 import slick.driver.JdbcProfile
 import slick.jdbc.meta.MTable
-import slick.profile.FixedSqlStreamingAction
+import slick.profile.SqlProfile.ColumnOption.{Nullable, NotNull}
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.matching.Regex
 
 /**
  * The abstract database component.
@@ -31,73 +37,24 @@ import scala.concurrent.{ExecutionContext, Future}
  * all database entities to have a particular shape, that shape is enforced in the EntityTable class. Note that
  * Component extends Sketch which is mixed in to other components but resolved by the Schema class.
  */
-abstract class Schema(val schemaName: String, val dbConfig: DatabaseConfig[JdbcProfile])
-  (implicit ec: ExecutionContext) extends LoggingHelper {
+abstract class Schema(val schemaName: String, val config_name: String, config : Config = ConfigFactory.load)
+  (implicit ec: ExecutionContext) extends LoggingHelper  {
 
+  lazy val dbConfig = DatabaseConfig.forConfig[JdbcProfile](config_name, config)
+
+  import dbConfig._
+  import dbConfig.driver.{DriverAction,StreamingDriverAction,ReturningInsertActionComposer,SchemaDescription}
   import dbConfig.driver.api._
 
-  protected def db = dbConfig.db
+  protected def validateExistingTables( tables: Vector[MTable] ) : Seq[Throwable] = Seq.empty[Throwable]
 
-  trait FinderOf[R] {
-    def apply() : FixedSqlStreamingAction[Seq[R],R,slick.dbio.Effect.Read]
-  }
-
-  trait StandardQueries[R,ID, T<:BasicTable[R]] { self : TableQuery[T] =>
-
-    def create(entity: R) : Future[ID]
-    def retrieve(id : ID) : Future[Option[R]]
-    def update(entity: R) : Future[ID]
-    def delete(id: ID) : Future[Int]
-    def fetch(id: ID) : Future[Option[R]] = retrieve(id)
-
-    final def fetch(oid: Option[ID]) : Future[Option[R]] = {
-      oid match {
-        case None =>
-          Future.successful(None)
-        case Some(id) =>
-          fetch(id)
-      }
-    }
-
-    val findAll : FinderOf[R] = new FinderOf[R] { def apply() = { self.result } }
-
-    final def find( finder: FinderOf[R] ) : FixedSqlStreamingAction[Seq[R],R,slick.dbio.Effect.Read] = {
-      finder()
-    }
-  }
-
-  abstract class BasicTable[S](tag: Tag, tableName: String) extends Table[S](tag, Some(schemaName), tableName) {
-    def fullName : String = {
-      val schemaPrefix = { schemaName.map { n => n + "." } getOrElse "" }
-      s"$schemaPrefix$tableName"
-    }
-
-    protected def nm(columnName: String) : String = {
-      s"${fullName}_$columnName"
-    }
-
-    protected def fkn(foreignTableName: String ) : String = {
-      nm( foreignTableName + "_fkey")
-    }
-
-    protected def idx(name: String) : String = nm(name + "_idx")
-
-  }
-
-  abstract class StandardTable[S,ID,T <: BasicTable[S]](c : Tag => T)
-    extends TableQuery[T]( c ) with StandardQueries[S,ID,T]
-
-  def tables : Seq[StandardTable[_,_,_]]
-
-  def schemas : dbConfig.driver.DDL
-
-  def validateTables( tables: Vector[MTable] ) : Seq[Throwable] = ???
-
-  final def validate(implicit session: Session) : Future[Seq[Throwable]] = db.run {
+  final def validate() : Future[Seq[Throwable]] = db.run {
     MTable.getTables.map[Seq[Throwable]] { tables : Vector[MTable] =>
-      validateTables(tables)
+      validateExistingTables(tables)
     }
   }
+
+  def schemas : SchemaDescription
 
   final def create() : Future[Unit] = {
     SupportedDatabase.forDriverName(dbConfig.driverName) match {
@@ -119,230 +76,171 @@ abstract class Schema(val schemaName: String, val dbConfig: DatabaseConfig[JdbcP
     db.run { extensions.drop }
   }
 
-  /*
-  trait SymbolicTable[S <: SymbolicIdentifiable] extends ScrupalTable[S] with AbstractStorage[Symbol,Symbol,S] {
+  trait CRUDQueries[R,ID, T<:TableRow[R]] { self : TableQuery[T] =>
+    type CreateResult = DriverAction[ReturningInsertActionComposer[T,Long]#SingleInsertResult,NoStream,Effect.Write]
+    type RetrieveResult =
+      StreamingDriverAction[Seq[T#TableElementType],R,Effect.Read]#ResultAction[Option[R],NoStream,Effect.Read]
+    type UpdateResult = DriverAction[Int,NoStream,Effect.Write]
+    type DeleteResult = DriverAction[Int,NoStream,Effect.Write]
 
-    def id = column[Symbol](nm("id"), O.PrimaryKey)
+    def create(entity: R) : CreateResult
+    def retrieve(id : ID) : RetrieveResult
+    def update(entity: R) : UpdateResult
+    def delete(id: ID) : DeleteResult
+  }
 
-    lazy val fetchByIDQuery = for { id <- Parameters[Symbol] ; ent <- this if ent.id === id } yield ent
-
-    override def fetch(id: Symbol) : Option[S] =  fetchByIDQuery(id).firstOption
-
-    override def insert(entity: S) : Symbol = { *  insert(entity) ; entity.id }
-
-    override def update(entity: S) : Int = this.filter(_.id === entity.id) update(entity)
-
-    override def delete(entity: S) : Boolean = delete(entity.id)
-
-    override def delete(id: Symbol) : Boolean =  {
-      this.filter(_.id === id).delete > 0
+  abstract class TableRow[S](tag: Tag, tableName: String) extends Table[S](tag, Some(schemaName), tableName) {
+    def fullName : String = {
+      val schemaPrefix = { schemaName.map { n => n + "." } getOrElse "" }
+      s"$schemaPrefix$tableName"
     }
+    protected def nm(columnName: String) : String = s"${fullName}_$columnName"
+    protected def fkn(foreignTableName: String ) : String = nm( foreignTableName + "_fkey")
+    protected def idx(name: String) : String = nm(name + "_idx")
   }
 
-  trait NumericTable[S <: NumericIdentifiable] extends ScrupalTable[S] with StorageFor[S] {
-
-    def id = column[Identifier](nm("id"), O.PrimaryKey, O.AutoInc)
-
-    lazy val fetchByIDQuery = for { id <- Parameters[Identifier] ; ent <- this if ent.id === id } yield ent
-
-    override def fetch(id: Identifier) : Option[S] =  fetchByIDQuery(id).firstOption
-
-    override def insert(entity: S) : Identifier = * returning id insert(entity)
-
-    override def update(entity: S) : Int = this.filter(_.id === entity.id) update(entity)
-
-    override def delete(entity: S) : Boolean = delete(entity.id)
-
-    protected def delete(oid: Option[Identifier]) : Boolean = {
-      oid match { case None => false; case Some(id) => delete(id) }
-    }
-
-    override def delete(id: Identifier) : Boolean =  {
-      this.filter(_.id === id).delete > 0
-    }
-
+  trait StorableRow[S <: Storable] extends TableRow[S] {
+    def id = column[Long](nm("id"), O.PrimaryKey, O.AutoInc, NotNull)
   }
 
-  trait CreatableTable[S <: Creatable] extends ScrupalTable[S] {
+  trait StorableQuery[S <: Storable, T <:StorableRow[S]] extends CRUDQueries[S,Long,T] {
+    self : TableQuery[T] =>
+    lazy val byIdQuery = Compiled { idToFind : Rep[Long] => this.filter(_.id === idToFind).distinct }
+    def byId(idToFind : Long) = byIdQuery(idToFind).result.headOption
 
-    def created = column[DateTime](nm("created"), O.Nullable) // FIXME: Dynamic Date required!
-
-    lazy val findSinceQuery = for {
-      created <- Parameters[DateTime] ;
-      e <- this if (e.created > created)
-    } yield e
-
-    case class CreatedSince(d: DateTime) extends FinderOf[S] { override def apply() = findSinceQuery(d).list }
+    override def create(entity: S) = (this returning this.map(_.id)) += entity
+    override def retrieve(id: Long) = byId(id)
+    override def update(entity: S) = byIdQuery(entity.id).update(entity)
+    override def delete(id: Long) = byIdQuery(id).delete
   }
 
-  trait ModifiableTable[S <: Modifiable] extends ScrupalTable[S] {
+  implicit lazy val instantMapper = MappedColumnType.base[Instant,Timestamp](
+  { i => new Timestamp( i.toEpochMilli ) },
+  { t => Instant.ofEpochMilli(t.getTime) }
+  )
 
-    def modified_index = index(nm("modified_index"), modified, unique=false)
+  implicit lazy val regexMapper = MappedColumnType.base[Regex, String] (
+  { r => r.pattern.pattern() },
+  { s => new Regex(s) }
+  )
 
-    def modified = column[DateTime](nm("modified"), O.Nullable) // FIXME: Dynamic Date required!
+  implicit lazy val durationMapper = MappedColumnType.base[Duration,Long] (
+  { d => d.toMillis },
+  { l => Duration.ofMillis(l) }
+  )
 
-    lazy val modifiedSinceQuery = for {
-      chg <- Parameters[DateTime];
-      mt <- this if mt.modified > chg
-    } yield mt
+  implicit lazy val symbolMapper = MappedColumnType.base[Symbol,String] (
+  { s => s.name},
+  { s => Symbol(s) }
+  )
 
-    case class ModifiedSince(d: DateTime) extends FinderOf[S] { override def apply() = modifiedSinceQuery(d).list }
+  implicit lazy val jsObjectMapper = MappedColumnType.base[JsObject,Clob] (
+  { jso =>
+    val clob = dbConfig.db.createSession().conn.createClob()
+    val str = Json.stringify(jso)
+    clob.setString(1, str)
+    clob
+  },
+  { clob =>
+    Json.parse(clob.getAsciiStream).asInstanceOf[JsObject]
+  }
+  )
+
+  trait CreatableRow[S <: Creatable] extends StorableRow[S] {
+    def created = column[Option[Instant]](nm("created"), Nullable)
+    def created_index = index(idx("created"), created, unique = false)
   }
 
-  trait NameableTable[S <: Nameable] extends ScrupalTable[S] {
-    def name = column[Symbol](nm("name"), O.NotNull)
-
-    def name_index = index(idx("name"), name, unique=true)
-
-    lazy val fetchByNameQuery = for {
-      n <- Parameters[Symbol] ;
-      e <- this if e.name === n
-    } yield e
-
-    case class ByName(n: Symbol) extends FinderOf[S] { override def apply() = fetchByNameQuery(n).list }
+  trait CreatableQuery[S <: Creatable, T <:CreatableRow[S]] extends StorableQuery[S,T] { self : TableQuery[T] =>
+    lazy val createdSinceQuery = Compiled { since : Rep[Instant] => this.filter(_.created >= since) }
+    def createdSince(since: Instant) = createdSinceQuery(since).result
   }
 
-  trait DescribableTable[S <: Describable] extends ScrupalTable[S] {
-    def description = column[String](nm("_description"), O.NotNull)
+  trait ModifiableRow[S <: Modifiable] extends StorableRow[S] {
+    def modified = column[Option[Instant]](nm("modified"), Nullable)
+    def modified_index = index(idx("modified"), modified, unique = false)
   }
 
-  trait EnablableTable[S <: Enablable] extends ScrupalTable[S] {
-    def enabled = column[Boolean](nm("enabled"), O.NotNull)
-    def enabled_index = index(idx("enabled"), enabled, unique=false)
-
-    lazy val enabledQuery = for { en <- this if en.enabled === true } yield en
-    def allEnabled() : List[S] = enabledQuery.list
+  trait ModifiableQuery[S <: Modifiable, T <:ModifiableRow[S]] extends StorableQuery[S,T] { self : TableQuery[T] =>
+    lazy val modifiedSinceQuery = Compiled { since : Rep[Instant] => this.filter(_.modified >= since) }
+    def modifiedSince(since: Instant) = modifiedSinceQuery(since).result
   }
 
-  trait NumericThingTable[S <: NumericThing]
-    extends NumericTable[S]
-    with NameableTable[S]
-    with CreatableTable[S]
-    with ModifiableTable[S]
-    with DescribableTable[S]
-
-  trait NumericEnablableThingTable[S <: NumericEnablableThing]
-    extends NumericThingTable[S] with EnablableTable[S]
-
-  trait SymbolicThingTable[S <: SymbolicThing]
-    extends SymbolicTable[S]
-    with CreatableTable[S]
-    with ModifiableTable[S]
-    with DescribableTable[S]
-
-  trait SymbolicEnablableThingTable[S <: SymbolicEnablableThing]
-    extends SymbolicThingTable[S] with EnablableTable[S]
-
-  abstract class SymbolicNumericCorrelationTable[A <: SymbolicIdentifiable, B <: NumericIdentifiable] (
-    tableName: String, nameA: String, nameB: String, tableA: SymbolicTable[A], tableB: NumericTable[B]) extends
-  ScrupalTable[(Symbol, Identifier)](tableName) {
-    def a_id = column[Symbol](nm(nameA + "_id"))
-    def b_id = column[Identifier](nm(nameB + "_id"))
-    def a_fkey = foreignKey(fkn(nameA), a_id, tableA)(_.id, onDelete = ForeignKeyAction.Cascade )
-    def b_fkey = foreignKey(fkn(nameB), b_id, tableB)(_.id, onDelete = ForeignKeyAction.Cascade )
-    def a_b_uniqueness = index(idx(nameA + "_" + nameB), (a_id, b_id), unique= true)
-
-    lazy val findAsQuery = for {
-      bId <- Parameters[Identifier];
-      b <- this if b.b_id === bId;
-      a <- tableA if a.id === b.a_id
-    } yield a
-
-    lazy val findBsQuery = for {
-      aId <- Parameters[Symbol];
-      a <- this if a.a_id === aId;
-      b <- tableB if b.id === a.b_id
-    } yield b
-
-    def findAssociatedA(b: B) : List[A] = { if (b.id.isDefined) findAsQuery(b.id.get).list else List() }
-    def findAssociatedB(a: A) : List[B] = { findBsQuery(a.id).list }
-    def * = a_id ~ b_id
+  trait ExpirableRow[S <: Expirable] extends StorableRow[S] {
+    def expired = column[Option[Instant]](nm("expired"), Nullable)
+    def expired_index = index(idx("expired"), expired, unique = false)
+  }
+  trait ExpirableQuery[S <: Expirable, T <: ExpirableRow[S]] extends StorableQuery[S,T] { self: TableQuery[T] =>
+    lazy val expiredSinceQuery = Compiled { since : Rep[Instant] => this.filter(_.expired <= since )}
+    def expiredSince(since: Instant) = expiredSinceQuery(since).result
   }
 
-  abstract class SymbolicSymbolicCorrelationTable[A <: SymbolicIdentifiable, B <: SymbolicIdentifiable] (
-    tableName: String, nameA: String, nameB: String, tableA: SymbolicTable[A], tableB: SymbolicTable[B]) extends
-  ScrupalTable[(Symbol, Symbol)](tableName) {
-    def a_id = column[Symbol](nm(nameA + "_id"))
-    def b_id = column[Symbol](nm(nameB + "_id"))
-    def a_fkey = foreignKey(fkn(nameA), a_id, tableA)(_.id, onDelete = ForeignKeyAction.Cascade )
-    def b_fkey = foreignKey(fkn(nameB), b_id, tableB)(_.id, onDelete = ForeignKeyAction.Cascade )
-    def a_b_uniqueness = index(idx(nameA + "_" + nameB), (a_id, b_id), unique= true)
-
-    lazy val findAsQuery = for {
-      bId <- Parameters[Symbol];
-      b <- this if b.b_id === bId;
-      a <- tableA if a.id === b.a_id
-    } yield a
-
-    lazy val findBsQuery = for {
-      aId <- Parameters[Symbol];
-      a <- this if a.a_id === aId;
-      b <- tableB if b.id === a.b_id
-    } yield b
-
-    def findAssociatedA(b: B) : List[A] = { findAsQuery(b.id).list }
-    def findAssociatedB(a: A) : List[B] = { findBsQuery(a.id).list }
-    def * = a_id ~ b_id
+  trait NameableRow[S <: Nameable] extends StorableRow[S] {
+    def name = column[String](nm("name"), NotNull)
+    def name_index = index(idx("name"), name, unique = true)
   }
+
+  trait NameableQuery[S <: Nameable, T <: NameableRow[S]] extends StorableQuery[S,T] { self : TableQuery[T] =>
+    lazy val byNameQuery = Compiled { aName : Rep[String] => this.filter(_.name === aName) }
+    def byName(name: String) = byNameQuery(name).result
+  }
+
+  trait DescribableRow[S <: Describable] extends StorableRow[S] {
+    def description = column[String](nm("description"), NotNull)
+  }
+
+  trait DescribableQuery[S <: Describable, T <: DescribableRow[S]] extends StorableQuery[S,T] { self : TableQuery[T] =>
+    lazy val byDescriptionQuery = Compiled { desc : Rep[String] => this.filter(_.description === desc) }
+    def byDescription(name: String) = byDescriptionQuery(name).result
+  }
+
+  abstract class UseableRow[S <: Useable](tag : Tag, name: String) extends TableRow[S](tag, name)
+    with StorableRow[S] with CreatableRow[S] with ModifiableRow[S]
+    with ExpirableRow[S] with NameableRow[S] with DescribableRow[S]
+
+  abstract class UseableQuery[S <: Useable, T <: UseableRow[S]](cons : Tag => T) extends TableQuery[T](cons)
+    with StorableQuery[S,T] with CreatableQuery[S,T] with ModifiableQuery[S,T]
+    with ExpirableQuery[S,T] with NameableQuery[S,T] with DescribableQuery[S,T] {
+  }
+
 
   /**
    * The base class of all correlation tables.
    * This allows many-to-many relationships to be established by simply listing the pairs of IDs
    */
-  abstract class ManyToManyTable[A <: NumericIdentifiable, B <: NumericIdentifiable ] (tableName: String,
-    nameA: String, nameB: String, tableA: NumericTable[A], tableB: NumericTable[B])
-    extends ScrupalTable[(Identifier,Identifier)](tableName) {
-    def a_id = column[Identifier](nm(nameA + "_id"))
-    def b_id = column[Identifier](nm(nameB + "_id"))
-    def a_fkey = foreignKey(fkn(nameA), a_id, tableA)(_.id, onDelete = ForeignKeyAction.Cascade )
-    def b_fkey = foreignKey(fkn(nameB), b_id, tableB)(_.id, onDelete = ForeignKeyAction.Cascade )
-    def a_b_uniqueness = index(idx(nameA + "_" + nameB), (a_id, b_id), unique= true)
-    lazy val findBsQuery = for { aId <- Parameters[Long]; a <- this if a.a_id === aId; b <- tableB if b.id === a.b_id } yield b
-    lazy val findAsQuery = for { bId <- Parameters[Long]; b <- this if b.b_id === bId; a <- tableA if a.id === b.a_id } yield a
-    def findAssociatedA(b: B) : List[A] = { if (b.id.isDefined) findAsQuery(b.id.get).list else List() }
-    def findAssociatedB(a: A) : List[B] = { if (a.id.isDefined) findBsQuery(a.id.get).list else List() }
-    def * = a_id ~ b_id
+  abstract class ManyToManyRow[
+    A <: Useable, TA <: UseableRow[A],
+    B <: Useable, TB <: UseableRow[B]](
+    tag : Tag, tableName:String,
+    nameA: String, queryA: UseableQuery[A,TA],
+    nameB: String, queryB: UseableQuery[B,TB]) extends TableRow[(Long,Long)](tag, tableName) {
 
-  };
+    def a_id = column[Long](nm(nameA + "_id"))
 
-  /**
-   * The base class of all tables that provide a string key to reference some Identifiable table.
-   * This allows a
-   */
-  abstract class NamedNumericTable[ReferentType <: NumericIdentifiable](
-    tableName: String, valueTable: NumericTable[ReferentType])
-    extends ScrupalTable[(String,Identifier)](tableName) {
-    def key = column[String](nm("key"))
-    def value = column[Identifier](nm("value"))
-    def value_fkey = foreignKey(fkn(valueTable.tableName), value, valueTable)(_.id,
-      onDelete = ForeignKeyAction.Cascade)
-    def key_value_index = index(idx("key_value"), on=(key, value), unique=true)
-    def * = key ~ value
+    def b_id = column[Long](nm(nameB + "_id"))
 
-    def insert( pair: (String, Long) )  = { * insert pair }
+    def a_fkey = foreignKey(fkn(nameA), a_id, queryA)(_.id, onDelete = ForeignKeyAction.Cascade)
 
-    def insert(k: String, v: Long) : Unit = insert( Tuple2(k, v) )
+    def b_fkey = foreignKey(fkn(nameB), b_id, queryB)(_.id, onDelete = ForeignKeyAction.Cascade)
 
-    // -- operations on rows
-    def delete(k: String) : Boolean =  {
-      this.filter(_.key === k).delete > 0
-    }
-
-    lazy val findValuesQuery = for {
-      k <- Parameters[String];
-      ni <- this if ni.key === k ;
-      vt <- valueTable if ni.value === vt.id
-    } yield vt
-
-    def findValues(aKey: String): List[ReferentType] = findValuesQuery(aKey).list
-
-    lazy val findKeysQuery = for {
-      id <- Parameters[Long];
-      ni <- this if ni.value === id
-    } yield ni.key
-
-    def findKeys(id : Long) : List[String] = findKeysQuery(id).list
+    def a_b_uniqueness = index(idx(nameA + "_" + nameB), (a_id, b_id), unique = true)
+    def * = (a_id, b_id)
   }
-  */
+
+  abstract class ManyToManyQuery[
+    A <: Useable, TA <: UseableRow[A],
+    B <: Useable, TB <: UseableRow[B],
+    T <: ManyToManyRow[A,TA,B,TB]](cons: Tag => T) extends TableQuery[T](cons) {
+    lazy val findAsQuery = Compiled { bId : Rep[Long] => this.filter (_.b_id === bId ) }
+    lazy val findBsQuery = Compiled { aId : Rep[Long] => this.filter (_.a_id === aId ) }
+    def findAssociatedA(id: Long) : DBIOAction[Seq[Long], NoStream, Effect.Read] =
+      findAsQuery(id).result.map { s : Seq[(Long,Long)] => s.map { p : (Long,Long) => p._1 } }
+    def findAssociatedA(b: B) : DBIOAction[Seq[Long], NoStream, Effect.Read]  = findAssociatedA(b.id)
+    def findAssociatedB(id: Long) : DBIOAction[Seq[Long], NoStream, Effect.Read] =
+      findBsQuery(id).result.map { s : Seq[(Long,Long)] => s.map { p : (Long,Long) => p._2 } }
+    def findAssociatedB(a: A) : DBIOAction[Seq[Long], NoStream, Effect.Read] = findAssociatedB(a.id)
+    def associate(a: A, b: B) = this += (a.id, b.id)
+  }
+
 }
 
