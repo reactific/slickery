@@ -24,7 +24,7 @@ import scala.language.postfixOps
 object SlickeryBuild extends Build {
 
   // Utilities
-  val helpers         = "com.reactific"       %% "helpers"              % "0.1.0-SNAPSHOT"
+  val helpers         = "com.reactific"       %% "helpers"              % "0.1.0"
   val slick           = "com.typesafe.slick"  %% "slick"                % "3.1.0"
   val h2              = "com.h2database"       % "h2"                   % "1.4.187"
   val logback         = "ch.qos.logback"       % "logback-classic"      % "1.1.3"
