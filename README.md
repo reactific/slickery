@@ -1,3 +1,12 @@
+
+[![License](http://img.shields.io/:license-Apache%202-red.svg)](http://www.apache.org/licenses/LICENSE-2.0.txt)
+[![Build Status](https://travis-ci.org/reactific/slickery.svg?branch=master)](https://travis-ci.org/reactific/slickery)
+[![Coverage Status](https://coveralls.io/repos/reactific/slickery/badge.svg?branch=master)](https://coveralls.io/r/reactific/slickery?branch=master)
+[![Release](https://img.shields.io/github/release/reactific/slickery.svg?style=flat)](https://github.com/reactific/slickery/releases)
+[![Downloads](https://img.shields.io/github/downloads/reactific/slickery/latest/total.svg)](https://github.com/reactific/slickery/releases)
+
+[![Join the chat at https://gitter.im/reactific/slickery](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/reactific/slickery?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 # slickery
 
 A set of utilities for working with Typesafe Slick 3.X. It provides the following:
