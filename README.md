@@ -9,6 +9,8 @@
 
 # slickery
 
+[![Join the chat at https://gitter.im/reactific/slickery](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/reactific/slickery?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 A set of utilities for working with Typesafe Slick 3.X. It provides the following:
 * Some "Ables" traits for common data representations of database objects
 * Definition of an abstract Schema which defines fragments of table rows, queries, mapped types, etc. 
