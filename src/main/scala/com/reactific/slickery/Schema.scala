@@ -48,8 +48,12 @@ abstract class Schema(val schemaName: String, val config_name: String, config : 
 
   protected def validateExistingTables( tables: Vector[MTable] ) : Seq[Throwable] = Seq.empty[Throwable]
 
-  final def validate() : Future[Seq[Throwable]] = db.run {
-    MTable.getTables.map[Seq[Throwable]] { tables : Vector[MTable] =>
+  final def metaTables() : Future[Vector[MTable]] = {
+    db.run { MTable.getTables(None, Some(schemaName), None, None) }
+  }
+
+  final def validate() : Future[Seq[Throwable]] = {
+    metaTables().map[Seq[Throwable]] { tables : Vector[MTable] =>
       validateExistingTables(tables)
     }
   }
@@ -57,8 +61,7 @@ abstract class Schema(val schemaName: String, val config_name: String, config : 
   def schemas : SchemaDescription
 
   final def create() : Future[Unit] = {
-    SupportedDatabase.forDriverName(dbConfig.driverName) match {
-      case Some(sdb) =>
+    SupportedDatabase.forDriverName(dbConfig.driverName) map { sdb =>
         val extensions = dbConfig.driver.createSchemaActionExtensionMethods(schemas)
         db.run {
           DBIO.seq(
@@ -66,9 +69,9 @@ abstract class Schema(val schemaName: String, val config_name: String, config : 
             extensions.create
           )
         }
-      case None =>
-        throw new Exception(s"No database for ${dbConfig.driverName}")
-    }
+    } getOrElse Future.failed(
+      new java.sql.SQLException(s"Unsupported Database Driver: ${dbConfig.driverName}")
+    )
   }
 
   final def drop() : Future[Unit] = {
@@ -111,7 +114,7 @@ abstract class Schema(val schemaName: String, val config_name: String, config : 
 
     override def create(entity: S) = (this returning this.map(_.id)) += entity
     override def retrieve(id: Long) = byId(id)
-    override def update(entity: S) = byIdQuery(entity.id).update(entity)
+    override def update(entity: S) = byIdQuery(entity.getId).update(entity)
     override def delete(id: Long) = byIdQuery(id).delete
   }
 
@@ -235,11 +238,11 @@ abstract class Schema(val schemaName: String, val config_name: String, config : 
     lazy val findBsQuery = Compiled { aId : Rep[Long] => this.filter (_.a_id === aId ) }
     def findAssociatedA(id: Long) : DBIOAction[Seq[Long], NoStream, Effect.Read] =
       findAsQuery(id).result.map { s : Seq[(Long,Long)] => s.map { p : (Long,Long) => p._1 } }
-    def findAssociatedA(b: B) : DBIOAction[Seq[Long], NoStream, Effect.Read]  = findAssociatedA(b.id)
+    def findAssociatedA(b: B) : DBIOAction[Seq[Long], NoStream, Effect.Read]  = findAssociatedA(b.getId)
     def findAssociatedB(id: Long) : DBIOAction[Seq[Long], NoStream, Effect.Read] =
       findBsQuery(id).result.map { s : Seq[(Long,Long)] => s.map { p : (Long,Long) => p._2 } }
-    def findAssociatedB(a: A) : DBIOAction[Seq[Long], NoStream, Effect.Read] = findAssociatedB(a.id)
-    def associate(a: A, b: B) = this += (a.id, b.id)
+    def findAssociatedB(a: A) : DBIOAction[Seq[Long], NoStream, Effect.Read] = findAssociatedB(a.getId)
+    def associate(a: A, b: B) = this += (a.getId, b.getId)
   }
 
 }

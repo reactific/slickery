@@ -16,13 +16,17 @@
 
 package com.reactific.slickery
 
-import java.time.Instant
+import java.time.{Duration, Instant}
 
 /** A Storable Object, the base trait of all storables
   * Objects stored in the database are uniquely identified by a 64-bit integer for each table.
   */
 
-trait Storable { def id : Long }
+trait Storable {
+  def id : Option[Long]
+  def isStored : Boolean = id.isDefined
+  def getId : Long = id.getOrElse(-1)
+}
 
 /** Creatable objects.
   * Objects that have a creation time stamp
@@ -30,6 +34,14 @@ trait Storable { def id : Long }
 trait Creatable extends Storable {
   def created: Option[Instant]
   def isCreated = created.isDefined
+  def olderThan(d : Duration) : Boolean = {
+    created match {
+      case Some(c : Instant) =>
+        Instant.now().minus(d).compareTo(c) > 0
+      case None => false
+    }
+  }
+  def newerThan(d : Duration) : Boolean = !olderThan(d)
 }
 
 /** Modifiable objects.
@@ -38,6 +50,14 @@ trait Creatable extends Storable {
 trait Modifiable extends Storable {
   def modified: Option[Instant]
   def isModified = modified.isDefined
+  def changedSince(i : Instant) : Boolean = {
+    modified match {
+      case Some(c : Instant) =>
+        i.compareTo(c) < 0
+      case None => false
+    }
+  }
+  def changedInLast(d : Duration) : Boolean = changedSince(Instant.now().minus(d))
 }
 
 /** Expirable objecst.
@@ -45,12 +65,12 @@ trait Modifiable extends Storable {
   */
 trait Expirable extends Storable {
   def expired : Option[Instant]
-  def expires = expired.isDefined
-  def hasExpired= expired match {
-    case None     ⇒ false
+  def isExpirable = expired.isDefined
+  def isExpired = expired match {
+    case None ⇒ false
     case Some(instant) ⇒ instant.isBefore(Instant.now())
   }
-  def unexpired : Boolean = !hasExpired
+  def unexpired : Boolean = !isExpired
 }
 
 /** Nameable objects.

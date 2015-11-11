@@ -17,6 +17,7 @@ import com.reactific.sbt.ProjectPlugin
 import com.reactific.sbt.ProjectPlugin.autoImport._
 import sbt._
 import sbt.Keys._
+import scoverage.ScoverageSbtPlugin
 
 import scala.language.postfixOps
 
@@ -29,6 +30,9 @@ object SlickeryBuild extends Build {
   val logback         = "ch.qos.logback"       % "logback-classic"      % "1.1.3"
   val play_json       = "com.typesafe.play"   %% "play-json"            % "2.4.3"
 
+  val classesIgnoredByScoverage : String = Seq[String](
+    "<empty>" // Avoids warnings from scoverage
+  ).mkString(";")
 
 
   lazy val root  = sbt.Project("slickery", file("."))
@@ -41,6 +45,9 @@ object SlickeryBuild extends Build {
       codePackage     := "com.reactific.slickery",
       titleForDocs    := "Reactific Slick Utilities",
       developerUrl    := url("http://www.reactific.com/"),
+      ScoverageSbtPlugin.ScoverageKeys.coverageFailOnMinimum := true,
+      ScoverageSbtPlugin.ScoverageKeys.coverageExcludedPackages := classesIgnoredByScoverage,
+      ScoverageSbtPlugin.ScoverageKeys.coverageMinimum := 100,
       libraryDependencies ++= Seq(
         helpers, slick, h2, logback, play_json
       )
