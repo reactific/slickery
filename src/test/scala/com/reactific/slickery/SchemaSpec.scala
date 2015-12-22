@@ -260,7 +260,7 @@ class SchemaSpec extends SlickerySpec {
 
     case class MapperSchema(name : String) extends Schema("mapper", name, testDbConfig(name)) {
       import dbConfig.driver.api._
-      class MappingsRow(tag:Tag) extends TableRow[MappingsT](tag, "Mappings") with StorableRow[MappingsT] {
+      class MappingsRow(tag:Tag) extends StorableRow[MappingsT](tag, "Mappings") {
         def r = column[Regex](nm("r"))
         def i = column[Instant](nm("i"))
         def d = column[java.time.Duration](nm("d"))
@@ -268,7 +268,7 @@ class SchemaSpec extends SlickerySpec {
         def jso = column[JsObject](nm("jso"))
         def * = (id.?,r,i,d,s,jso) <> (MappingsT.tupled, MappingsT.unapply)
       }
-      object Mappings extends TableQuery[MappingsRow](new MappingsRow(_)) with StorableQuery[MappingsT, MappingsRow]
+      object Mappings extends StorableQuery[MappingsT, MappingsRow](new MappingsRow(_))
       def schemas = Mappings.schema
     }
 

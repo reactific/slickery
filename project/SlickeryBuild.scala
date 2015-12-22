@@ -27,7 +27,6 @@ object SlickeryBuild extends Build {
   val helpers         = "com.reactific"       %% "helpers"              % "0.1.0"
   val slick           = "com.typesafe.slick"  %% "slick"                % "3.1.0"
   val h2              = "com.h2database"       % "h2"                   % "1.4.187"
-  val logback         = "ch.qos.logback"       % "logback-classic"      % "1.1.3"
   val play_json       = "com.typesafe.play"   %% "play-json"            % "2.4.3"
 
   val classesIgnoredByScoverage : String = Seq[String](
@@ -41,7 +40,6 @@ object SlickeryBuild extends Build {
       organization    := "com.reactific",
       copyrightHolder := "Reactific Software LLC",
       copyrightYears  := Seq(2015),
-      scalaVersion    := "2.11.6",
       codePackage     := "com.reactific.slickery",
       titleForDocs    := "Reactific Slick Utilities",
       developerUrl    := url("http://www.reactific.com/"),
@@ -49,7 +47,7 @@ object SlickeryBuild extends Build {
       ScoverageSbtPlugin.ScoverageKeys.coverageExcludedPackages := classesIgnoredByScoverage,
       ScoverageSbtPlugin.ScoverageKeys.coverageMinimum := 100,
       libraryDependencies ++= Seq(
-        helpers, slick, h2, logback, play_json
+        helpers, slick, h2, play_json
       )
     )
 }

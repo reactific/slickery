@@ -102,13 +102,13 @@ abstract class Schema(val schemaName: String, val config_name: String, config : 
     protected def idx(name: String) : String = nm(name + "_idx")
   }
 
-  trait StorableRow[S <: Storable] extends TableRow[S] {
+  abstract class StorableRow[S <: Storable](tag: Tag, tableName: String) extends TableRow[S](tag, tableName) {
     def id = column[Long](nm("id"), O.PrimaryKey, O.AutoInc, NotNull)
   }
 
-  trait StorableQuery[S <: Storable, T <:StorableRow[S]] extends CRUDQueries[S,Long,T] {
-    self : TableQuery[T] =>
-    val query = self
+  abstract class StorableQuery[S <: Storable, T <:StorableRow[S]](cons : Tag => T)
+    extends TableQuery[T](cons) with CRUDQueries[S,Long,T] {
+    val query = this
     lazy val byIdQuery = Compiled { idToFind : Rep[Long] => this.filter(_.id === idToFind) }
     def byId(idToFind : Long) = byIdQuery(idToFind).result.headOption
 
@@ -155,7 +155,7 @@ abstract class Schema(val schemaName: String, val config_name: String, config : 
     def created_index = index(idx("created"), created, unique = false)
   }
 
-  trait CreatableQuery[S <: Creatable, T <:CreatableRow[S]] extends StorableQuery[S,T] { self : TableQuery[T] =>
+  trait CreatableQuery[S <: Creatable, T <:CreatableRow[S]] extends StorableQuery[S,T] {
     lazy val createdSinceQuery = Compiled { since : Rep[Instant] => this.filter(_.created >= since) }
     def createdSince(since: Instant) = createdSinceQuery(since).result
   }
@@ -165,7 +165,7 @@ abstract class Schema(val schemaName: String, val config_name: String, config : 
     def modified_index = index(idx("modified"), modified, unique = false)
   }
 
-  trait ModifiableQuery[S <: Modifiable, T <:ModifiableRow[S]] extends StorableQuery[S,T] { self : TableQuery[T] =>
+  trait ModifiableQuery[S <: Modifiable, T <:ModifiableRow[S]] extends StorableQuery[S,T] {
     lazy val modifiedSinceQuery = Compiled { since : Rep[Instant] => this.filter(_.modified >= since) }
     def modifiedSince(since: Instant) = modifiedSinceQuery(since).result
   }
@@ -174,7 +174,8 @@ abstract class Schema(val schemaName: String, val config_name: String, config : 
     def expired = column[Option[Instant]](nm("expired"), Nullable)
     def expired_index = index(idx("expired"), expired, unique = false)
   }
-  trait ExpirableQuery[S <: Expirable, T <: ExpirableRow[S]] extends StorableQuery[S,T] { self: TableQuery[T] =>
+
+  trait ExpirableQuery[S <: Expirable, T <: ExpirableRow[S]] extends StorableQuery[S,T] {
     lazy val expiredSinceQuery = Compiled { since : Rep[Instant] => this.filter(_.expired <= since )}
     def expiredSince(since: Instant) = expiredSinceQuery(since).result
   }
@@ -184,7 +185,7 @@ abstract class Schema(val schemaName: String, val config_name: String, config : 
     def name_index = index(idx("name"), name, unique = true)
   }
 
-  trait NameableQuery[S <: Nameable, T <: NameableRow[S]] extends StorableQuery[S,T] { self : TableQuery[T] =>
+  trait NameableQuery[S <: Nameable, T <: NameableRow[S]] extends StorableQuery[S,T] {
     lazy val byNameQuery = Compiled { aName : Rep[String] => this.filter(_.name === aName) }
     def byName(name: String) = byNameQuery(name).result
   }
@@ -193,17 +194,16 @@ abstract class Schema(val schemaName: String, val config_name: String, config : 
     def description = column[String](nm("description"), NotNull)
   }
 
-  trait DescribableQuery[S <: Describable, T <: DescribableRow[S]] extends StorableQuery[S,T] { self : TableQuery[T] =>
+  trait DescribableQuery[S <: Describable, T <: DescribableRow[S]] extends StorableQuery[S,T] {
     lazy val byDescriptionQuery = Compiled { desc : Rep[String] => this.filter(_.description === desc) }
     def byDescription(name: String) = byDescriptionQuery(name).result
   }
 
-  abstract class UseableRow[S <: Useable](tag : Tag, name: String) extends TableRow[S](tag, name)
-    with StorableRow[S] with CreatableRow[S] with ModifiableRow[S]
-    with ExpirableRow[S] with NameableRow[S] with DescribableRow[S]
+  abstract class UseableRow[S <: Useable](tag : Tag, name: String) extends StorableRow[S](tag, name)
+    with CreatableRow[S] with ModifiableRow[S] with ExpirableRow[S] with NameableRow[S] with DescribableRow[S]
 
-  abstract class UseableQuery[S <: Useable, T <: UseableRow[S]](cons : Tag => T) extends TableQuery[T](cons)
-    with StorableQuery[S,T] with CreatableQuery[S,T] with ModifiableQuery[S,T]
+  abstract class UseableQuery[S <: Useable, T <: UseableRow[S]](cons : Tag => T) extends StorableQuery[S,T](cons)
+    with CreatableQuery[S,T] with ModifiableQuery[S,T]
     with ExpirableQuery[S,T] with NameableQuery[S,T] with DescribableQuery[S,T] {
   }
 

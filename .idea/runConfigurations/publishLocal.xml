@@ -1,0 +1,10 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="publishLocal" type="SbtRunConfiguration" factoryName="SBT Task" singleton="true">
+    <setting name="tasks" value="publishLocal" />
+    <setting name="vmparams" value="-Xms512M -Xmx1024M -Xss1M" />
+    <envs />
+    <method>
+      <option name="Make" enabled="false" />
+    </method>
+  </configuration>
+</component>
