@@ -147,7 +147,7 @@ class SchemaSpec extends SlickerySpec {
       }
     }
 
-    case class TestUsable(id : Option[Long], created : Option[Instant] = None, modified: Option[Instant] = None,
+    case class TestUsable(oid : Option[Long], created : Option[Instant] = None, modified: Option[Instant] = None,
       expired: Option[Instant] = None, name: String = "", description: String = "") extends Useable {
     }
 
@@ -256,7 +256,7 @@ class SchemaSpec extends SlickerySpec {
     }
 
     case class MappingsT(
-      id: Option[Long] = None, r: Regex, i: Instant, d: java.time.Duration, s: Symbol, jso: JsObject) extends Storable
+      oid: Option[Long] = None, r: Regex, i: Instant, d: java.time.Duration, s: Symbol, jso: JsObject) extends Storable
 
     case class MapperSchema(name : String) extends Schema("mapper", name, testDbConfig(name)) {
       import dbConfig.driver.api._
@@ -284,7 +284,7 @@ class SchemaSpec extends SlickerySpec {
       val obj = Await.result( db.run { schema.Mappings.retrieve(1) }, 5.seconds)
       obj.isDefined must beTrue
       val mt = obj.get
-      mt.id must beEqualTo(Some(1))
+      mt.oid must beEqualTo(Some(1))
       mt.r.pattern.pattern() must beEqualTo("foo".r.pattern.pattern())
       mt.i must beEqualTo(now)
       mt.d must beEqualTo(java.time.Duration.ofDays(1))

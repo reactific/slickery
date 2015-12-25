@@ -7,7 +7,7 @@ import org.specs2.mutable.Specification
 /** Test Cases For The Ables */
 class AblesSpec extends Specification {
 
-  case class TestUsable(id : Option[Long] = None, created : Option[Instant] = None, modified: Option[Instant] = None,
+  case class TestUsable(oid : Option[Long] = None, created : Option[Instant] = None, modified: Option[Instant] = None,
     expired: Option[Instant] = None, name: String = "", description: String = "") extends Useable {
   }
 

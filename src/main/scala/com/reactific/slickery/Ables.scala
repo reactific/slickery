@@ -23,9 +23,9 @@ import java.time.{Duration, Instant}
   */
 
 trait Storable {
-  def id : Option[Long]
-  def isStored : Boolean = id.isDefined
-  def getId : Long = id.getOrElse(-1)
+  def oid : Option[Long]
+  def isStored : Boolean = oid.isDefined
+  def getId : Long = oid.getOrElse(-1)
 }
 
 /** Creatable objects.
