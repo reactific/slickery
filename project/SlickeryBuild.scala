@@ -18,13 +18,16 @@ import com.reactific.sbt.ProjectPlugin.autoImport._
 import sbt._
 import sbt.Keys._
 import scoverage.ScoverageSbtPlugin
+import scoverage.ScoverageSbtPlugin.ScoverageKeys._
+import org.scoverage.coveralls.Imports.CoverallsKeys._
+
 
 import scala.language.postfixOps
 
 object SlickeryBuild extends Build {
 
   // Utilities
-  val helpers         = "com.reactific"       %% "helpers"              % "0.1.0"
+  val helpers         = "com.reactific"       %% "helpers"              % "0.3.0"
   val slick           = "com.typesafe.slick"  %% "slick"                % "3.1.0"
   val h2              = "com.h2database"       % "h2"                   % "1.4.187"
   val play_json       = "com.typesafe.play"   %% "play-json"            % "2.4.3"
@@ -35,7 +38,7 @@ object SlickeryBuild extends Build {
 
 
   lazy val root  = sbt.Project("slickery", file("."))
-    .enablePlugins(ProjectPlugin)
+    .enablePlugins(ProjectPlugin, ScoverageSbtPlugin)
     .settings(
       organization    := "com.reactific",
       copyrightHolder := "Reactific Software LLC",
@@ -43,9 +46,10 @@ object SlickeryBuild extends Build {
       codePackage     := "com.reactific.slickery",
       titleForDocs    := "Reactific Slick Utilities",
       developerUrl    := url("http://www.reactific.com/"),
-      ScoverageSbtPlugin.ScoverageKeys.coverageFailOnMinimum := true,
-      ScoverageSbtPlugin.ScoverageKeys.coverageExcludedPackages := classesIgnoredByScoverage,
-      ScoverageSbtPlugin.ScoverageKeys.coverageMinimum := 100,
+      coverageFailOnMinimum := true,
+      coverageExcludedPackages := classesIgnoredByScoverage,
+      coverageMinimum := 100,
+      coverallsToken := Some("kxHEjzKGBB3aclIfZgtw6oDWERuSUudIv"),
       libraryDependencies ++= Seq(
         helpers, slick, h2, play_json
       )
