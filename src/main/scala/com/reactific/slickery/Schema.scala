@@ -18,8 +18,9 @@ package com.reactific.slickery
 
 import java.sql.{Clob, Timestamp}
 import java.time.{Duration, Instant}
+import java.util.concurrent.TimeUnit
 
-import com.reactific.helpers.LoggingHelper
+import com.reactific.helpers.{FutureHelper, LoggingHelper}
 import com.typesafe.config.{Config, ConfigFactory}
 import play.api.libs.json.{Json, JsObject}
 import slick.backend.DatabaseConfig
@@ -38,7 +39,7 @@ import scala.util.matching.Regex
  * Component extends Sketch which is mixed in to other components but resolved by the Schema class.
  */
 abstract class Schema(val schemaName: String, val config_name: String, config : Config = ConfigFactory.load)
-  (implicit ec: ExecutionContext) extends LoggingHelper  {
+  (implicit ec: ExecutionContext) extends AutoCloseable with LoggingHelper with FutureHelper  {
 
   lazy val dbConfig = DatabaseConfig.forConfig[JdbcProfile](config_name, config)
 
@@ -79,6 +80,10 @@ abstract class Schema(val schemaName: String, val config_name: String, config : 
     db.run { extensions.drop }
   }
 
+  final def close() : Unit = {
+    await(drop(), scala.concurrent.duration.Duration(1,TimeUnit.MINUTES), s"close schema '$schemaName'")
+  }
+
   trait CRUDQueries[R,ID, T<:TableRow[R]] { self : TableQuery[T] =>
     type CreateResult = DriverAction[ReturningInsertActionComposer[T,Long]#SingleInsertResult,NoStream,Effect.Write]
     type RetrieveResult =
@@ -92,6 +97,8 @@ abstract class Schema(val schemaName: String, val config_name: String, config : 
     def delete(id: ID) : DeleteResult
   }
 
+  type OIDType = Storable.OIDType
+
   abstract class TableRow[S](tag: Tag, tableName: String) extends Table[S](tag, Some(schemaName), tableName) {
     def fullName : String = {
       val schemaPrefix = { schemaName.map { n => n + "." } getOrElse "" }
@@ -103,19 +110,32 @@ abstract class Schema(val schemaName: String, val config_name: String, config : 
   }
 
   abstract class StorableRow[S <: Storable](tag: Tag, tableName: String) extends TableRow[S](tag, tableName) {
-    def id = column[Long](nm("id"), O.PrimaryKey, O.AutoInc, NotNull)
+    def oid = column[OIDType](nm("oid"), O.PrimaryKey, O.AutoInc, NotNull)
   }
 
   abstract class StorableQuery[S <: Storable, T <:StorableRow[S]](cons : Tag => T)
-    extends TableQuery[T](cons) with CRUDQueries[S,Long,T] {
+    extends TableQuery[T](cons) with CRUDQueries[S,OIDType,T] {
     val query = this
-    lazy val byIdQuery = Compiled { idToFind : Rep[Long] => this.filter(_.id === idToFind) }
-    def byId(idToFind : Long) = byIdQuery(idToFind).result.headOption
+    lazy val byIdQuery = Compiled {
+      idToFind : Rep[OIDType] =>
+        query.filter(_.oid === idToFind)
+    }
+    def byId(idToFind : OIDType) = {
+      byIdQuery(idToFind).result.headOption
+    }
 
-    override def create(entity: S) = (this returning this.map(_.id)) += entity
-    override def retrieve(id: Long) = byId(id)
-    override def update(entity: S) = byIdQuery(entity.getId).update(entity)
-    override def delete(id: Long) = byIdQuery(id).delete
+    override def create(entity: S)  : CreateResult = {
+      (this returning this.map(_.oid)) += entity
+    }
+    override def retrieve(id: OIDType) : RetrieveResult = {
+      byId(id)
+    }
+    override def update(entity: S)  : UpdateResult = {
+      byIdQuery(entity.getId).update(entity)
+    }
+    override def delete(oid: OIDType)  : DeleteResult = {
+      byIdQuery(oid).delete
+    }
   }
 
   implicit lazy val instantMapper = MappedColumnType.base[Instant,Timestamp](
@@ -151,7 +171,7 @@ abstract class Schema(val schemaName: String, val config_name: String, config : 
   )
 
   trait CreatableRow[S <: Creatable] extends StorableRow[S] {
-    def created = column[Option[Instant]](nm("created"), Nullable)
+    def created = column[Instant](nm("created"), Nullable)
     def created_index = index(idx("created"), created, unique = false)
   }
 
@@ -161,7 +181,7 @@ abstract class Schema(val schemaName: String, val config_name: String, config : 
   }
 
   trait ModifiableRow[S <: Modifiable] extends StorableRow[S] {
-    def modified = column[Option[Instant]](nm("modified"), Nullable)
+    def modified = column[Instant](nm("modified"), Nullable)
     def modified_index = index(idx("modified"), modified, unique = false)
   }
 
@@ -171,7 +191,7 @@ abstract class Schema(val schemaName: String, val config_name: String, config : 
   }
 
   trait ExpirableRow[S <: Expirable] extends StorableRow[S] {
-    def expired = column[Option[Instant]](nm("expired"), Nullable)
+    def expired = column[Instant](nm("expired"), Nullable)
     def expired_index = index(idx("expired"), expired, unique = false)
   }
 
@@ -200,11 +220,10 @@ abstract class Schema(val schemaName: String, val config_name: String, config : 
   }
 
   abstract class UseableRow[S <: Useable](tag : Tag, name: String) extends StorableRow[S](tag, name)
-    with CreatableRow[S] with ModifiableRow[S] with ExpirableRow[S] with NameableRow[S] with DescribableRow[S]
+    with CreatableRow[S] with ModifiableRow[S] with NameableRow[S] with DescribableRow[S]
 
   abstract class UseableQuery[S <: Useable, T <: UseableRow[S]](cons : Tag => T) extends StorableQuery[S,T](cons)
-    with CreatableQuery[S,T] with ModifiableQuery[S,T]
-    with ExpirableQuery[S,T] with NameableQuery[S,T] with DescribableQuery[S,T] {
+    with CreatableQuery[S,T] with ModifiableQuery[S,T] with NameableQuery[S,T] with DescribableQuery[S,T] {
   }
 
   /**
@@ -216,15 +235,15 @@ abstract class Schema(val schemaName: String, val config_name: String, config : 
     B <: Storable, TB <: StorableRow[B]](
     tag : Tag, tableName:String,
     nameA: String, queryA: StorableQuery[A,TA],
-    nameB: String, queryB: StorableQuery[B,TB]) extends TableRow[(Long,Long)](tag, tableName) {
+    nameB: String, queryB: StorableQuery[B,TB]) extends TableRow[(OIDType,OIDType)](tag, tableName) {
 
-    def a_id = column[Long](nm(nameA + "_id"))
+    def a_id = column[OIDType](nm(nameA + "_id"))
 
-    def b_id = column[Long](nm(nameB + "_id"))
+    def b_id = column[OIDType](nm(nameB + "_id"))
 
-    def a_fkey = foreignKey(fkn(nameA), a_id, queryA.query)(_.id, onDelete = ForeignKeyAction.Cascade)
+    def a_fkey = foreignKey(fkn(nameA), a_id, queryA.query)(_.oid, onDelete = ForeignKeyAction.Cascade)
 
-    def b_fkey = foreignKey(fkn(nameB), b_id, queryB.query)(_.id, onDelete = ForeignKeyAction.Cascade)
+    def b_fkey = foreignKey(fkn(nameB), b_id, queryB.query)(_.oid, onDelete = ForeignKeyAction.Cascade)
 
     def a_b_uniqueness = index(idx(nameA + "_" + nameB), (a_id, b_id), unique = true)
     def * = (a_id, b_id)
@@ -234,14 +253,14 @@ abstract class Schema(val schemaName: String, val config_name: String, config : 
     A <: Storable, TA <: StorableRow[A],
     B <: Storable, TB <: StorableRow[B],
     T <: ManyToManyRow[A,TA,B,TB]](cons: Tag => T) extends TableQuery[T](cons) {
-    lazy val findAsQuery = Compiled { bId : Rep[Long] => this.filter (_.b_id === bId ) }
-    lazy val findBsQuery = Compiled { aId : Rep[Long] => this.filter (_.a_id === aId ) }
-    def findAssociatedA(id: Long) : DBIOAction[Seq[Long], NoStream, Effect.Read] =
-      findAsQuery(id).result.map { s : Seq[(Long,Long)] => s.map { p : (Long,Long) => p._1 } }
-    def findAssociatedA(b: B) : DBIOAction[Seq[Long], NoStream, Effect.Read]  = findAssociatedA(b.getId)
-    def findAssociatedB(id: Long) : DBIOAction[Seq[Long], NoStream, Effect.Read] =
-      findBsQuery(id).result.map { s : Seq[(Long,Long)] => s.map { p : (Long,Long) => p._2 } }
-    def findAssociatedB(a: A) : DBIOAction[Seq[Long], NoStream, Effect.Read] = findAssociatedB(a.getId)
+    lazy val findAsQuery = Compiled { bId : Rep[OIDType] => this.filter (_.b_id === bId ) }
+    lazy val findBsQuery = Compiled { aId : Rep[OIDType] => this.filter (_.a_id === aId ) }
+    def findAssociatedA(id: OIDType) : DBIOAction[Seq[OIDType], NoStream, Effect.Read] =
+      findAsQuery(id).result.map { s : Seq[(OIDType,OIDType)] => s.map { p : (OIDType,OIDType) => p._1 } }
+    def findAssociatedA(b: B) : DBIOAction[Seq[OIDType], NoStream, Effect.Read]  = findAssociatedA(b.getId)
+    def findAssociatedB(id: OIDType) : DBIOAction[Seq[OIDType], NoStream, Effect.Read] =
+      findBsQuery(id).result.map { s : Seq[(OIDType,OIDType)] => s.map { p : (OIDType,OIDType) => p._2 } }
+    def findAssociatedB(a: A) : DBIOAction[Seq[OIDType], NoStream, Effect.Read] = findAssociatedB(a.getId)
     def associate(a: A, b: B) = this += (a.getId, b.getId)
   }
 

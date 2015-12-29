@@ -18,12 +18,18 @@ package com.reactific.slickery
 
 import java.time.{Duration, Instant}
 
+import com.reactific.slickery.Storable.OIDType
+
 /** A Storable Object, the base trait of all storables
   * Objects stored in the database are uniquely identified by a 64-bit integer for each table.
   */
 
+object Storable {
+  type OIDType = Long
+}
+
 trait Storable {
-  def oid : Option[Long]
+  def oid : Option[OIDType]
   def isStored : Boolean = oid.isDefined
   def getId : Long = oid.getOrElse(-1)
 }
@@ -32,13 +38,13 @@ trait Storable {
   * Objects that have a creation time stamp
   */
 trait Creatable extends Storable {
-  def created: Option[Instant]
-  def isCreated = created.isDefined
+  def created: Instant
+  def isCreated : Boolean = created != Instant.EPOCH
   def olderThan(d : Duration) : Boolean = {
     created match {
-      case Some(c : Instant) =>
+      case Instant.EPOCH => false
+      case c : Instant =>
         Instant.now().minus(d).compareTo(c) > 0
-      case None => false
     }
   }
   def newerThan(d : Duration) : Boolean = !olderThan(d)
@@ -48,27 +54,31 @@ trait Creatable extends Storable {
   * Objects that have a modification time stamp
   */
 trait Modifiable extends Storable {
-  def modified: Option[Instant]
-  def isModified = modified.isDefined
+  def modified: Instant
+  def isModified : Boolean = modified != Instant.EPOCH
   def changedSince(i : Instant) : Boolean = {
     modified match {
-      case Some(c : Instant) =>
+      case Instant.EPOCH => false
+      case c : Instant =>
         i.compareTo(c) < 0
-      case None => false
     }
   }
-  def changedInLast(d : Duration) : Boolean = changedSince(Instant.now().minus(d))
+  def changedInLast(d : Duration) : Boolean = {
+    changedSince(Instant.now().minus(d))
+  }
 }
 
-/** Expirable objecst.
+/** Expirable objects.
   * Something that has an expiration date
   */
 trait Expirable extends Storable {
-  def expired : Option[Instant]
-  def isExpirable = expired.isDefined
-  def isExpired = expired match {
-    case None ⇒ false
-    case Some(instant) ⇒ instant.isBefore(Instant.now())
+  def expiresAt : Instant
+  def hasExpiry : Boolean = expiresAt != Instant.EPOCH
+  def isExpired = {
+    expiresAt match {
+      case Instant.EPOCH ⇒ false
+      case e: Instant ⇒ e.isBefore(Instant.now())
+    }
   }
   def unexpired : Boolean = !isExpired
 }
@@ -87,4 +97,4 @@ trait Describable extends Storable {
   def isDescribed : Boolean = ! description.isEmpty
 }
 
-trait Useable extends Storable with Creatable with Modifiable with Expirable with Nameable with Describable
+trait Useable extends Storable with Creatable with Modifiable with Nameable with Describable

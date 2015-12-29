@@ -7,13 +7,13 @@ import org.specs2.mutable.Specification
 /** Test Cases For The Ables */
 class AblesSpec extends Specification {
 
-  case class TestUsable(oid : Option[Long] = None, created : Option[Instant] = None, modified: Option[Instant] = None,
-    expired: Option[Instant] = None, name: String = "", description: String = "") extends Useable {
+  case class TestUsable(oid : Option[Long] = None, created : Instant = Instant.EPOCH,
+    modified : Instant = Instant.EPOCH, name: String = "", description: String = "") extends Useable {
   }
 
   val tu1 = TestUsable()
   val now = Instant.now()
-  val tu2 = TestUsable(Some(1),Some(now), Some(now), Some(now), "foo", "This is fooness." )
+  val tu2 = TestUsable(Some(1),now, now, "foo", "This is fooness." )
 
   "Useable" should {
     "support Storable" in {
@@ -26,6 +26,7 @@ class AblesSpec extends Specification {
       tu1.isCreated must beFalse
       tu2.isCreated must beTrue
       tu1.olderThan(Duration.ofNanos(0L)) must beFalse
+      tu2.olderThan(Duration.ofNanos(0L)) must beTrue
       tu2.olderThan(Duration.ofDays(1L)) must beFalse
       tu2.newerThan(Duration.ofNanos(0L)) must beFalse
     }
@@ -37,12 +38,19 @@ class AblesSpec extends Specification {
       tu2.changedInLast(Duration.ofNanos(0L)) must beFalse
     }
     "support Expirable" in {
-      tu1.isExpirable must beFalse
-      tu2.isExpirable must beTrue
-      tu1.isExpired must beFalse
-      tu2.isExpired must beTrue
-      tu1.unexpired must beTrue
-      tu2.unexpired must beFalse
+      val te1 = new Expirable {
+        val expiresAt: Instant = Instant.ofEpochMilli(0)
+        val oid: Option[Long] = None
+      }
+      val now = Instant.now()
+      val te2 = new Expirable {
+        val expiresAt: Instant = now
+        val oid: Option[Long] = None
+      }
+      te1.isExpired must beFalse
+      te2.isExpired must beTrue
+      te1.unexpired must beTrue
+      te2.unexpired must beFalse
     }
     "support Nameable" in {
       tu1.isNamed must beFalse

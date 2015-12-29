@@ -17,6 +17,7 @@ package com.reactific.slickery
 
 import java.time.Instant
 
+import com.reactific.helpers.LoggingHelper
 import com.typesafe.config.{ConfigFactory, Config}
 import org.h2.jdbc.JdbcSQLException
 import org.specs2.matcher.MatchResult
@@ -32,6 +33,8 @@ import scala.util.matching.Regex
 
 /** Test cases for components */
 class SchemaSpec extends SlickerySpec {
+
+  LoggingHelper.setToWarn("slick.*")
 
   case class Foo(id: Int, name: String)
 
@@ -147,14 +150,14 @@ class SchemaSpec extends SlickerySpec {
       }
     }
 
-    case class TestUsable(oid : Option[Long], created : Option[Instant] = None, modified: Option[Instant] = None,
-      expired: Option[Instant] = None, name: String = "", description: String = "") extends Useable {
+    case class TestUsable(oid : Option[Long], created : Instant = Instant.ofEpochMilli(0L),
+      modified: Instant = Instant.ofEpochMilli(0L), name: String = "", description: String = "") extends Useable {
     }
 
     case class TraitsSchema(name : String) extends Schema("test", name, testDbConfig(name)) {
       import dbConfig.driver.api._
       class TraitsRow(tag : Tag) extends UseableRow[TestUsable](tag, "TestInfo"){
-        def * = (id.?,created,modified,expired,name,description) <> (TestUsable.tupled, TestUsable.unapply)
+        def * = (oid.?,created,modified,name,description) <> (TestUsable.tupled, TestUsable.unapply)
       }
       object testInfos extends UseableQuery[TestUsable, TraitsRow]( new TraitsRow(_))
       def schemas = testInfos.schema
@@ -169,7 +172,6 @@ class SchemaSpec extends SlickerySpec {
           schema.testInfos.byId(0L).map { testInfo => testInfo must beNone }
           schema.testInfos.byName("").map { testInfo => testInfo.nonEmpty must beTrue }
           schema.testInfos.byDescription("").map { testInfo => testInfo.nonEmpty must beTrue}
-          schema.testInfos.expiredSince(Instant.now()).map { s => s.isEmpty must beTrue }
           schema.testInfos.modifiedSince(Instant.now()).map { s => s.isEmpty must beTrue }
           schema.testInfos.createdSince(Instant.now()).map { s => s.isEmpty must beTrue }
         } map {
@@ -203,10 +205,10 @@ class SchemaSpec extends SlickerySpec {
     case class CorrelationSchema(name : String) extends Schema("test", name, testDbConfig(name)) {
       import dbConfig.driver.api._
       class ARow(tag:Tag) extends UseableRow[TestUsable](tag, "As") {
-        def * = (id.?,created,modified,expired,name,description) <> (TestUsable.tupled, TestUsable.unapply)
+        def * = (oid.?,created,modified,name,description) <> (TestUsable.tupled, TestUsable.unapply)
       }
       class BRow(tag:Tag) extends UseableRow[TestUsable](tag, "Bs") {
-        def * = (id.?,created,modified,expired,name,description) <> (TestUsable.tupled, TestUsable.unapply)
+        def * = (oid.?,created,modified,name,description) <> (TestUsable.tupled, TestUsable.unapply)
       }
       object As extends UseableQuery[TestUsable,ARow]( new ARow(_))
       object Bs extends UseableQuery[TestUsable,BRow]( new BRow(_))
@@ -266,7 +268,7 @@ class SchemaSpec extends SlickerySpec {
         def d = column[java.time.Duration](nm("d"))
         def s = column[Symbol](nm("s"))
         def jso = column[JsObject](nm("jso"))
-        def * = (id.?,r,i,d,s,jso) <> (MappingsT.tupled, MappingsT.unapply)
+        def * = (oid.?,r,i,d,s,jso) <> (MappingsT.tupled, MappingsT.unapply)
       }
       object Mappings extends StorableQuery[MappingsT, MappingsRow](new MappingsRow(_))
       def schemas = Mappings.schema
