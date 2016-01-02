@@ -16,20 +16,16 @@
 
 package com.reactific.slickery
 
-import java.sql.{Clob, Timestamp}
-import java.time.{Duration, Instant}
+import java.time.Instant
 import java.util.concurrent.TimeUnit
 
-import com.reactific.helpers.{FutureHelper, LoggingHelper}
 import com.typesafe.config.{Config, ConfigFactory}
-import play.api.libs.json.{Json, JsObject}
 import slick.backend.DatabaseConfig
-import slick.driver.JdbcProfile
-import slick.jdbc.meta.MTable
-import slick.profile.SqlProfile.ColumnOption.{Nullable, NotNull}
+import slick.driver.JdbcDriver
+import slick.jdbc.ResultSetAction
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.matching.Regex
+import scala.reflect.ClassTag
 
 /**
  * The abstract database component.
@@ -38,46 +34,115 @@ import scala.util.matching.Regex
  * all database entities to have a particular shape, that shape is enforced in the EntityTable class. Note that
  * Component extends Sketch which is mixed in to other components but resolved by the Schema class.
  */
-abstract class Schema(val schemaName: String, val config_name: String, config : Config = ConfigFactory.load)
-  (implicit ec: ExecutionContext) extends AutoCloseable with LoggingHelper with FutureHelper  {
+abstract class Schema[DRVR <: JdbcDriver with SlickeryExtensions](
+  schemaNamePrototype: String,
+  val databaseKind : SupportedDB[DRVR],
+  configPath : String,
+  config : Config = ConfigFactory.load)
+  (implicit ec: ExecutionContext, classTag : ClassTag[DRVR])
+  extends AutoCloseable with SlickeryComponent {
 
-  lazy val dbConfig = DatabaseConfig.forConfig[JdbcProfile](config_name, config)
+  val schemaName = schemaNamePrototype.replaceAll("[ $!@#%^&*~`]", "_")
+  val dbConfig = DatabaseConfig.forConfig[DRVR](configPath, config)
+  val driver = dbConfig.driver
+  import driver.api._
 
-  import dbConfig._
-  import dbConfig.driver.{DriverAction,StreamingDriverAction,ReturningInsertActionComposer,SchemaDescription}
-  import dbConfig.driver.api._
+  val db = dbConfig.db
 
-  protected def validateExistingTables( tables: Vector[MTable] ) : Seq[Throwable] = Seq.empty[Throwable]
+  import driver.{DriverAction,StreamingDriverAction,ReturningInsertActionComposer,SchemaDescription}
+  import slick.jdbc.meta.MTable
+  import slick.profile.SqlProfile.ColumnOption.{Nullable, NotNull}
 
-  final def metaTables() : Future[Vector[MTable]] = {
-    db.run { MTable.getTables(None, Some(schemaName), None, None) }
+  protected def validateExistingTables( tables: Seq[MTable] ) : Seq[Throwable] = {
+    val theSchemas = schemas
+    def checkValidity(mtable: MTable) : Option[Throwable] = {
+      mtable.name.schema match {
+        case Some(sName) if sName != schemaName ⇒
+          Some(new SlickeryException(this, s"Table $sName.${mtable.name.name} is not part of schema $schemaName"))
+        case Some(sName) ⇒
+          if (!theSchemas.contains(mtable.name.name)) {
+            Some(new SlickeryException(this, s"Spurious table ${mtable.name.name} found in schema $schemaName"))
+          } else {
+            None
+          }
+        case None ⇒
+          Some(new SlickeryException(this, s"Table ${mtable.name.name} has no schema name"))
+      }
+    }
+    def checkSchema(name: String, sd: SchemaDescription) : Option[Throwable] = {
+      if (tables.exists { mtable ⇒ mtable.name.name == name})
+        None
+      else
+        Some(new SlickeryException(this, s"Required table $name is missing"))
+    }
+    val tableChecks = for (mtable ← tables; error <- checkValidity(mtable)) yield { error }
+    val schemaChecks = for ((name,sd) ← theSchemas; error ← checkSchema(name,sd)) yield { error }
+    tableChecks.toSeq ++ schemaChecks
+  }
+
+  final def schemaNames() : Future[Seq[String]] = {
+    db.run { ResultSetAction[String](_.metaData.getSchemas() ) { r => r.nextString() } }
+  }
+
+  final def metaTables() : Future[Seq[MTable]] = {
+    db.run {
+      MTable.getTables(None, Some(schemaName), None, None)
+    }
   }
 
   final def validate() : Future[Seq[Throwable]] = {
-    metaTables().map[Seq[Throwable]] { tables : Vector[MTable] =>
+    metaTables().map { tables : Seq[MTable] =>
       validateExistingTables(tables)
     }
   }
 
-  def schemas : SchemaDescription
+  def schemas : Map[String,SchemaDescription]
+
+  private val nullSD : SchemaDescription = null
 
   final def create() : Future[Unit] = {
-    SupportedDatabase.forDriverName(dbConfig.driverName) map { sdb =>
-        val extensions = dbConfig.driver.createSchemaActionExtensionMethods(schemas)
-        db.run {
-          DBIO.seq(
-            sdb.makeSchema(dbConfig.driver, schemaName),
+    db.run {
+      driver.makeSchema(schemaName).flatMap { rows ⇒
+        MTable.getTables(None, Some(schemaName), None, None).flatMap[Unit,NoStream,Effect.Schema] { tables ⇒
+          log.debug(s"Existing Tables: ${tables.map{_.name}}")
+          val statements = for (
+            (name, sd) ← schemas if !tables.exists { mt ⇒ mt.name.name == name }
+          ) yield sd
+          log.debug(s"Schema creation statements: $statements")
+          val ddl : SchemaDescription = statements.foldLeft(nullSD) {
+            case (accum, statement) ⇒
+              if (accum == null)
+                statement
+              else
+                accum ++ statement
+          }
+          if (ddl != null) {
+            val extensions = driver.createSchemaActionExtensionMethods(ddl)
             extensions.create
-          )
+          } else {
+            sqlu"".map { i ⇒ () }
+          }
         }
-    } getOrElse Future.failed(
-      new java.sql.SQLException(s"Unsupported Database Driver: ${dbConfig.driverName}")
-    )
+      }
+    }
   }
 
   final def drop() : Future[Unit] = {
-    val extensions = dbConfig.driver.createSchemaActionExtensionMethods(schemas)
-    db.run { extensions.drop }
+    db.run {
+      val ddl : SchemaDescription = schemas.values.foldLeft(nullSD) {
+        case (accum, statement) ⇒
+          if (accum == null)
+            statement
+          else
+            accum ++ statement
+      }
+      if (ddl != null) {
+        val extensions = driver.createSchemaActionExtensionMethods(ddl)
+        extensions.drop
+      } else {
+        toss("No DDL Statements In Schema To Drop")
+      }
+    }
   }
 
   final def close() : Unit = {
@@ -116,10 +181,7 @@ abstract class Schema(val schemaName: String, val config_name: String, config : 
   abstract class StorableQuery[S <: Storable, T <:StorableRow[S]](cons : Tag => T)
     extends TableQuery[T](cons) with CRUDQueries[S,OIDType,T] {
     val query = this
-    lazy val byIdQuery = Compiled {
-      idToFind : Rep[OIDType] =>
-        query.filter(_.oid === idToFind)
-    }
+    lazy val byIdQuery = { this.findBy(_.oid) }
     def byId(idToFind : OIDType) = {
       byIdQuery(idToFind).result.headOption
     }
@@ -136,39 +198,13 @@ abstract class Schema(val schemaName: String, val config_name: String, config : 
     override def delete(oid: OIDType)  : DeleteResult = {
       byIdQuery(oid).delete
     }
+    def runCreate(entity: S)   : Future[OIDType] = db.run { this.create(entity) }
+    def runRetrieve(oid : OIDType): Future[Option[S]] = db.run { this.retrieve(oid) }
+    def runUpdate(entity: S)   : Future[Int] = db.run { this.update(entity) }
+    def runDelete(oid: OIDType)   : Future[Int] = db.run { this.delete(oid) }
   }
 
-  implicit lazy val instantMapper = MappedColumnType.base[Instant,Timestamp](
-  { i => new Timestamp( i.toEpochMilli ) },
-  { t => Instant.ofEpochMilli(t.getTime) }
-  )
-
-  implicit lazy val regexMapper = MappedColumnType.base[Regex, String] (
-  { r => r.pattern.pattern() },
-  { s => new Regex(s) }
-  )
-
-  implicit lazy val durationMapper = MappedColumnType.base[Duration,Long] (
-  { d => d.toMillis },
-  { l => Duration.ofMillis(l) }
-  )
-
-  implicit lazy val symbolMapper = MappedColumnType.base[Symbol,String] (
-  { s => s.name},
-  { s => Symbol(s) }
-  )
-
-  implicit lazy val jsObjectMapper = MappedColumnType.base[JsObject,Clob] (
-  { jso =>
-    val clob = dbConfig.db.createSession().conn.createClob()
-    val str = Json.stringify(jso)
-    clob.setString(1, str)
-    clob
-  },
-  { clob =>
-    Json.parse(clob.getAsciiStream).asInstanceOf[JsObject]
-  }
-  )
+  implicit val instantMapper = driver.instantMapper
 
   trait CreatableRow[S <: Creatable] extends StorableRow[S] {
     def created = column[Instant](nm("created"), Nullable)
@@ -191,12 +227,12 @@ abstract class Schema(val schemaName: String, val config_name: String, config : 
   }
 
   trait ExpirableRow[S <: Expirable] extends StorableRow[S] {
-    def expired = column[Instant](nm("expired"), Nullable)
-    def expired_index = index(idx("expired"), expired, unique = false)
+    def expiresAt = column[Instant](nm("expiresAt"), Nullable)
+    def expiresAt_index = index(idx("expiresAt"), expiresAt, unique = false)
   }
 
   trait ExpirableQuery[S <: Expirable, T <: ExpirableRow[S]] extends StorableQuery[S,T] {
-    lazy val expiredSinceQuery = Compiled { since : Rep[Instant] => this.filter(_.expired <= since )}
+    lazy val expiredSinceQuery = Compiled { since : Rep[Instant] => this.filter(_.expiresAt <= since ) }
     def expiredSince(since: Instant) = expiredSinceQuery(since).result
   }
 

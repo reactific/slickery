@@ -12,7 +12,6 @@
  * the specific language governing permissions and limitations under the License.                                     *
  **********************************************************************************************************************/
 
-
 import com.reactific.sbt.ProjectPlugin
 import com.reactific.sbt.ProjectPlugin.autoImport._
 import sbt._
@@ -27,10 +26,16 @@ import scala.language.postfixOps
 object SlickeryBuild extends Build {
 
   // Utilities
-  val helpers         = "com.reactific"       %% "helpers"              % "0.3.1-SNAPSHOT"
-  val slick           = "com.typesafe.slick"  %% "slick"                % "3.1.1"
-  val h2              = "com.h2database"       % "h2"                   % "1.4.187"
-  val play_json       = "com.typesafe.play"   %% "play-json"            % "2.4.3"
+  val helpers             = "com.reactific"       %% "helpers"              % "0.3.1"
+  val slick               = "com.typesafe.slick"  %% "slick"                % "3.1.1"
+  val h2                  = "com.h2database"       % "h2"                   % "1.4.187"
+  val mysql               = "mysql"                % "mysql-connector-java" % "5.1.38"
+  val sqlite              = "org.xerial"           % "sqlite-jdbc"          % "3.8.11.2"
+  val play_json           = "com.typesafe.play"   %% "play-json"            % "2.4.4"
+  val slick_pg            = "com.github.tminglei" %% "slick-pg"             % "0.10.2"
+  val slick_pg_play_json  = "com.github.tminglei" %% "slick-pg_play-json"   % "0.10.2"
+  val slick_pg_date2      = "com.github.tminglei" %% "slick-pg_date2"       % "0.10.2"
+  val slick_pg_jts        = "com.github.tminglei" %% "slick-pg_jts"         % "0.10.2"
 
   val classesIgnoredByScoverage : String = Seq[String](
     "<empty>" // Avoids warnings from scoverage
@@ -51,7 +56,8 @@ object SlickeryBuild extends Build {
       coverageMinimum := 100,
       coverallsToken := Some("kxHEjzKGBB3aclIfZgtw6oDWERuSUudIv"),
       libraryDependencies ++= Seq(
-        helpers, slick, h2, play_json
+        helpers, slick, h2, mysql, sqlite, play_json,
+        slick_pg, slick_pg_play_json, slick_pg_date2, slick_pg_jts
       )
     )
 }
