@@ -3,8 +3,6 @@
 [![Build Status](https://travis-ci.org/reactific/slickery.svg?branch=master)](https://travis-ci.org/reactific/slickery)
 [![Coverage Status](https://coveralls.io/repos/reactific/slickery/badge.svg?branch=master&service=github)](https://coveralls.io/github/reactific/slickery?branch=master)
 [![Release](https://img.shields.io/github/release/reactific/slickery.svg?style=flat)](https://github.com/reactific/slickery/releases)
-[![Downloads](https://img.shields.io/github/downloads/reactific/slickery/latest/total.svg)](https://github.com/reactific/slickery/releases)
-
 [![Join the chat at https://gitter.im/reactific/slickery](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/reactific/slickery?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 # slickery
