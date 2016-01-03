@@ -1,7 +1,6 @@
 package com.reactific.slickery
 
-import java.io.File
-import java.sql.DriverManager
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeUnit
 
 import com.github.tminglei.slickpg.{LTree, `[_,_]`, Range}
@@ -18,7 +17,6 @@ import play.api.libs.json.{Json, JsValue}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.Await
-import scala.util.{Success, Failure, Try}
 
 case class PostgresBean(oid : Option[OIDType], range : Range[Int],
   text: String, props: Map[String,String],
@@ -45,9 +43,9 @@ case class PostgresSchema(name: String) extends Schema(name, PostgresQL, name, P
   import driver.api._
   import driver._
 
-  implicit val simpleIntRangeTypeMapper = PostgresQL.driver.api.simpleIntRangeTypeMapper
-  implicit val simpleHStoreTypeMapper = PostgresQL.driver.api.simpleHStoreTypeMapper
-  implicit val simpleLTreeTypeMapper = PostgresQL.driver.api.simpleLTreeTypeMapper
+  implicit val simpleIntRangeTypeMapper = driver.api.simpleIntRangeTypeMapper
+  implicit val simpleHStoreTypeMapper = driver.api.simpleHStoreTypeMapper
+  implicit val simpleLTreeTypeMapper = driver.api.simpleLTreeTypeMapper
 
   class TestTable(tag: Tag) extends StorableRow[PostgresBean](tag, "Test") {
     def range = column[Range[Int]]("range", O.Default(Range[Int](1,9,`[_,_]`)))
@@ -71,18 +69,7 @@ case class PostgresSchema(name: String) extends Schema(name, PostgresQL, name, P
 /** Test Case For Postgres Specific Features */
 class PostgresSpec extends Specification with LoggingHelper with FutureHelper {
 
-  lazy val postgresIsViable : Boolean = Try {
-    val url : String = "jdbc:postgresql://localhost:5432/test"
-    Class.forName("org.postgresql.Driver")
-    DriverManager.getConnection(url)
-  } match {
-    case Success(conn) ⇒
-      log.info("Postgresql is viable")
-      true
-    case Failure(xcptn) ⇒
-      log.warn(s"Postgresql is not viable: ${xcptn.getClass.getSimpleName + ": " + xcptn.getMessage}")
-      false
-  }
+  lazy val postgresIsViable : Boolean = PostgresQL.testConnection
 
   def postgresViable[T](name: String)(fun : (PostgresSchema) ⇒ T)(implicit evidence : AsResult[T]) : Result = {
     if (postgresIsViable) {

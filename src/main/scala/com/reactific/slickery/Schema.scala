@@ -40,7 +40,7 @@ abstract class Schema[DRVR <: JdbcDriver with SlickeryExtensions](
   configPath : String,
   config : Config = ConfigFactory.load)
   (implicit ec: ExecutionContext, classTag : ClassTag[DRVR])
-  extends AutoCloseable with SlickeryComponent {
+  extends SlickeryComponent {
 
   val schemaName = schemaNamePrototype.replaceAll("[ $!@#%^&*~`]", "_")
   val dbConfig = DatabaseConfig.forConfig[DRVR](configPath, config)
@@ -58,22 +58,22 @@ abstract class Schema[DRVR <: JdbcDriver with SlickeryExtensions](
     def checkValidity(mtable: MTable) : Option[Throwable] = {
       mtable.name.schema match {
         case Some(sName) if sName != schemaName ⇒
-          Some(new SlickeryException(this, s"Table $sName.${mtable.name.name} is not part of schema $schemaName"))
+          Some(mkThrowable(s"Table $sName.${mtable.name.name} is not part of schema $schemaName"))
         case Some(sName) ⇒
           if (!theSchemas.contains(mtable.name.name)) {
-            Some(new SlickeryException(this, s"Spurious table ${mtable.name.name} found in schema $schemaName"))
+            Some(mkThrowable(s"Spurious table ${mtable.name.name} found in schema $schemaName"))
           } else {
             None
           }
         case None ⇒
-          Some(new SlickeryException(this, s"Table ${mtable.name.name} has no schema name"))
+          Some(mkThrowable(s"Table ${mtable.name.name} has no schema name"))
       }
     }
     def checkSchema(name: String, sd: SchemaDescription) : Option[Throwable] = {
       if (tables.exists { mtable ⇒ mtable.name.name == name})
         None
       else
-        Some(new SlickeryException(this, s"Required table $name is missing"))
+        Some(mkThrowable(s"Required table $name is missing"))
     }
     val tableChecks = for (mtable ← tables; error <- checkValidity(mtable)) yield { error }
     val schemaChecks = for ((name,sd) ← theSchemas; error ← checkSchema(name,sd)) yield { error }
@@ -143,10 +143,6 @@ abstract class Schema[DRVR <: JdbcDriver with SlickeryExtensions](
         toss("No DDL Statements In Schema To Drop")
       }
     }
-  }
-
-  final def close() : Unit = {
-    await(drop(), scala.concurrent.duration.Duration(1,TimeUnit.MINUTES), s"close schema '$schemaName'")
   }
 
   trait CRUDQueries[R,ID, T<:TableRow[R]] { self : TableQuery[T] =>
@@ -255,12 +251,17 @@ abstract class Schema[DRVR <: JdbcDriver with SlickeryExtensions](
     def byDescription(name: String) = byDescriptionQuery(name).result
   }
 
-  abstract class UseableRow[S <: Useable](tag : Tag, name: String) extends StorableRow[S](tag, name)
+  abstract class SlickeryRow[S <: Slickery](tag : Tag, name: String) extends StorableRow[S](tag, name)
     with CreatableRow[S] with ModifiableRow[S] with NameableRow[S] with DescribableRow[S]
 
-  abstract class UseableQuery[S <: Useable, T <: UseableRow[S]](cons : Tag => T) extends StorableQuery[S,T](cons)
-    with CreatableQuery[S,T] with ModifiableQuery[S,T] with NameableQuery[S,T] with DescribableQuery[S,T] {
-  }
+  abstract class SlickeryQuery[S <: Slickery, T <: SlickeryRow[S]](cons : Tag => T) extends StorableQuery[S,T](cons)
+    with CreatableQuery[S,T] with ModifiableQuery[S,T] with NameableQuery[S,T] with DescribableQuery[S,T]
+
+  abstract class ExpirableSlickeryRow[S <: Slickery with Expirable](tag : Tag, name : String)
+    extends SlickeryRow[S](tag, name) with ExpirableRow[S]
+
+  abstract class ExpirableSlickeryQuery[S <: Slickery with Expirable, T <: ExpirableSlickeryRow[S]](cons : Tag ⇒ T)
+    extends SlickeryQuery[S,T](cons) with ExpirableQuery[S,T]
 
   /**
    * The base class of all correlation tables.

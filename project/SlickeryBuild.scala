@@ -53,7 +53,7 @@ object SlickeryBuild extends Build {
       developerUrl    := url("http://www.reactific.com/"),
       coverageFailOnMinimum := true,
       coverageExcludedPackages := classesIgnoredByScoverage,
-      coverageMinimum := 100,
+      coverageMinimum := 85,
       coverallsToken := Some("kxHEjzKGBB3aclIfZgtw6oDWERuSUudIv"),
       libraryDependencies ++= Seq(
         helpers, slick, h2, mysql, sqlite, play_json,

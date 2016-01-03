@@ -97,4 +97,4 @@ trait Describable extends Storable {
   def isDescribed : Boolean = ! description.isEmpty
 }
 
-trait Useable extends Storable with Creatable with Modifiable with Nameable with Describable
+trait Slickery extends Storable with Creatable with Modifiable with Nameable with Describable

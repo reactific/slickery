@@ -17,11 +17,10 @@ package com.reactific.slickery
 
 import java.time.Instant
 
-import com.reactific.helpers.LoggingHelper
+import com.reactific.helpers.{FutureHelper, TryWith, LoggingHelper}
 import com.reactific.slickery.Storable.OIDType
 import com.typesafe.config.{ConfigFactory, Config}
 import org.h2.jdbc.JdbcSQLException
-import org.specs2.matcher.MatchResult
 import play.api.libs.json.{JsValue, JsObject}
 import slick.dbio
 import slick.jdbc.meta.MTable
@@ -30,64 +29,67 @@ import slick.lifted.ProvenShape
 import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.util.Failure
+import scala.util.{Success, Failure}
 import scala.util.matching.Regex
 
-object SchemaSpec extends SlickeryTestHelpers {
+object SchemaSpecHelper extends SlickeryTestHelpers {
 
 }
 case class Foo(name: String, oid: Option[OIDType] = None, description: String = "", created : Instant = Instant.EPOCH,
-    modified : Instant = Instant.EPOCH, expiresAt : Instant = Instant.EPOCH) extends Useable with Expirable
+    modified : Instant = Instant.EPOCH, expiresAt : Instant = Instant.EPOCH) extends Slickery with Expirable
 
-case class TestSchema(name : String) extends Schema("testSchema", H2, name, SchemaSpec.testDbConfig(name)) {
+case class TestSchema(name : String) extends Schema("testSchema", H2, name, SchemaSpecHelper.testDbConfig(name)) {
 
   import driver.api._
 
-  class TestTableRow(tag: Tag) extends UseableRow[Foo](tag, "testTable") {
+  class TestTableRow(tag: Tag) extends SlickeryRow[Foo](tag, "testTable") {
     def expiresAt = column[Instant]("exipiresAt")
     override def * : ProvenShape[Foo] = {
       (name, oid.?, description, created, modified, expiresAt) <> ((Foo.apply _).tupled, Foo.unapply )
     }
   }
 
-  object foos extends UseableQuery[Foo,TestTableRow]( new TestTableRow(_))  {
+  object foos extends SlickeryQuery[Foo,TestTableRow]( new TestTableRow(_))  {
     val findByName = this.findBy(_.name)
   }
   def schemas = Map("testTable" → foos.schema)
 }
 
-case class TestUsable(oid : Option[Long], created : Instant = Instant.ofEpochMilli(0L),
-    modified: Instant = Instant.ofEpochMilli(0L), name: String = "", description: String = "") extends Useable {
-}
+case class TestUsable(oid : Option[Long], created : Instant = Instant.EPOCH, modified: Instant = Instant.EPOCH,
+                      name: String = "", description: String = "") extends Slickery
 
-case class TraitsSchema(name : String) extends Schema("test", H2, name, SchemaSpec.testDbConfig(name)) {
+case class CorrelationSchema(name : String) extends Schema(name, H2, name, SchemaSpecHelper.testDbConfig(name)) {
   import driver.api._
-  class TraitsRow(tag : Tag) extends UseableRow[TestUsable](tag, "TestInfo"){
+  case class ARow(tag:Tag) extends SlickeryRow[TestUsable](tag, "As") {
     def * = (oid.?,created,modified,name,description) <> (TestUsable.tupled, TestUsable.unapply)
   }
-  object testInfos extends UseableQuery[TestUsable, TraitsRow]( new TraitsRow(_))
-  def schemas = Map("TestInfo" → testInfos.schema)
-}
-
-case class CorrelationSchema(name : String) extends Schema("test", H2, name, SchemaSpec.testDbConfig(name)) {
-  import this.driver.api._
-  case class ARow(tag:Tag) extends UseableRow[TestUsable](tag, "As") {
+  case class BRow(tag:Tag) extends SlickeryRow[TestUsable](tag, "Bs") {
     def * = (oid.?,created,modified,name,description) <> (TestUsable.tupled, TestUsable.unapply)
   }
-  case class BRow(tag:Tag) extends UseableRow[TestUsable](tag, "Bs") {
-    def * = (oid.?,created,modified,name,description) <> (TestUsable.tupled, TestUsable.unapply)
-  }
-  object As extends UseableQuery[TestUsable,ARow]( new ARow(_))
-  object Bs extends UseableQuery[TestUsable,BRow]( new BRow(_))
+  object As extends SlickeryQuery[TestUsable, ARow]( new ARow(_))
+  object Bs extends SlickeryQuery[TestUsable, BRow]( new BRow(_))
   class A2BRow(tag : Tag) extends ManyToManyRow[TestUsable,ARow,TestUsable,BRow](tag, "A2B", "A", As, "B", Bs)
   object A2B extends ManyToManyQuery[TestUsable,ARow,TestUsable,BRow,A2BRow]( new A2BRow(_))
-  def schemas = Map( "As" → As.schema, "Bs" → Bs.schema, "A2B" -> A2B.schema)
+  override def schemas = Map( "As" → As.schema, "Bs" → Bs.schema, "A2B" -> A2B.schema)
+}
+
+case class TestExpirableUsable(oid : Option[Long], created : Instant = Instant.EPOCH, modified: Instant = Instant.EPOCH,
+    expiresAt : Instant = Instant.EPOCH, name: String = "", description: String = "") extends Slickery with Expirable
+
+class TraitsSchema(name : String) extends Schema("test", H2, name, SchemaSpecHelper.testDbConfig(name)) {
+  import driver.api._
+  class TraitsRow(tag : Tag) extends ExpirableSlickeryRow[TestExpirableUsable](tag, "TraitsRow") {
+    def * = (oid.?,created,modified,expiresAt,name,description) <> (TestExpirableUsable.tupled, TestExpirableUsable.unapply)
+  }
+  class TraitsQuery extends ExpirableSlickeryQuery[TestExpirableUsable, TraitsRow](new TraitsRow(_))
+  object testInfos extends TraitsQuery
+  def schemas = Map("TraitsRow" → testInfos.schema)
 }
 
 case class MappingsT(
     oid: Option[Long] = None, r: Regex, i: Instant, d: java.time.Duration, s: Symbol, jso: JsValue) extends Storable
 
-case class MapperSchema(name : String) extends Schema("mapper", H2, name, SchemaSpec.testDbConfig(name)) {
+case class MapperSchema(name : String) extends Schema("mapper", H2, name, SchemaSpecHelper.testDbConfig(name)) {
   import this.driver.api._
   implicit val regexMapper = driver.regexMapper
   implicit val durationMapper = driver.durationMapper
@@ -107,13 +109,13 @@ case class MapperSchema(name : String) extends Schema("mapper", H2, name, Schema
 
 
 /** Test cases for components */
-class SchemaSpec extends SlickerySpec {
+class SchemaSpec extends SlickerySpec with FutureHelper {
   LoggingHelper.setToInfo("slick.*")
-  //LoggingHelper.setToDebug("slick.jdbc.*")
+  // LoggingHelper.setToDebug("slick.jdbc.*")
 
-  "Component" should {
+  "Schema" should {
     "throw on bad db config" in {
-      def badDbConfig(name : String) : Config = {
+      def badDbConfig(name: String): Config = {
         ConfigFactory.parseString(
           s"""$name {
              |  driver = "slick.driver.Fahrvergnügen$$"
@@ -122,13 +124,14 @@ class SchemaSpec extends SlickerySpec {
              |    driver = "org.fv.Driver"
              |    url = "jdbc:fv:$baseDir/$name"
              |  }
-             |}""".stripMargin)
+             |}""".stripMargin
+        )
       }
-      FakeSchema("junk",badDbConfig("junk")) must throwA[slick.SlickException]
+      FakeSchema("junk", badDbConfig("junk")) must throwA[slick.SlickException]
     }
 
     "throw on unsupported driver" in {
-      def testDbConfig(name : String) : Config = {
+      def testDbConfig(name: String): Config = {
         ConfigFactory.parseString(
           s"""$name {
              |  driver = "slick.driver.DerbyDriver$$"
@@ -137,9 +140,10 @@ class SchemaSpec extends SlickerySpec {
              |    driver = "org.apache.derby.jdbc.EmbeddedDriver"
              |    url = "jdbc:derby:$baseDir/$name"
              |  }
-             |}""".stripMargin)
+             |}""".stripMargin
+        )
       }
-      FakeSchema("nodriver",testDbConfig("nodriver")) must throwA[slick.SlickException]
+      FakeSchema("nodriver", testDbConfig("nodriver")) must throwA[slick.SlickException]
     }
     "validate empty database generates error" in
       testdb("validate_empty")(name => new TestSchema(name)) { schema: TestSchema =>
@@ -171,21 +175,21 @@ class SchemaSpec extends SlickerySpec {
                 failure(s"validate failed: ${x.getMessage}")
             }
           } recover {
-            case x : Throwable ⇒
+            case x: Throwable ⇒
               failure(s"metaTables failed: ${x.getMessage}")
           }
         } recover {
-          case x : Throwable ⇒
+          case x: Throwable ⇒
             failure(s"schema names failed: ${x.getMessage}")
         }
       } recover {
-        case x : Throwable ⇒
+        case x: Throwable ⇒
           failure(s"schema creation failed: ${x.getMessage}")
       }
       Await.result(future, 5.seconds)
     }
 
-    "fail when there's no schema" in testdb("no_schema")(name => new TestSchema(name)) { schema : TestSchema =>
+    "fail when there's no schema" in testdb("no_schema")(name => new TestSchema(name)) { schema: TestSchema =>
       val future = Await.ready(schema.foos.runRetrieve(0), 5.second)
       future.isCompleted must beTrue
       future.value match {
@@ -195,10 +199,10 @@ class SchemaSpec extends SlickerySpec {
       }
     }
 
-    "supports dropping schema" in testdb("drop_schema")(name => new TestSchema(name)) { schema : TestSchema =>
+    "supports dropping schema" in testdb("drop_schema")(name => new TestSchema(name)) { schema: TestSchema =>
       val future = schema.create().flatMap { u ⇒
         schema.drop().flatMap { u ⇒
-          schema.metaTables().map { metatables : Seq[MTable] ⇒
+          schema.metaTables().map { metatables: Seq[MTable] ⇒
             metatables.exists { table =>
               table.name.name == "testTable"
             } must beFalse
@@ -208,7 +212,7 @@ class SchemaSpec extends SlickerySpec {
       Await.result(future, 5.seconds).toResult
     }
 
-    "succeed when there is a schema" in testdb("with_schema")(name => new TestSchema(name)) { schema : TestSchema =>
+    "succeed when there is a schema" in testdb("with_schema")(name => new TestSchema(name)) { schema: TestSchema =>
       val future = schema.create().flatMap { u ⇒
         schema.foos.runRetrieve(0).map {
           case Some(x: Foo) => failure("There should be no value")
@@ -220,95 +224,98 @@ class SchemaSpec extends SlickerySpec {
     }
 
     "allow table traits to be combined" in testdb("combine_traits")(name => new TraitsSchema(name)) {
-     schema: TraitsSchema =>
-       import schema.db
-       val create_future = schema.create()
-       Await.result(create_future, 5.seconds)
-       val res = db.run {
-         schema.testInfos.byId(0L).map { testInfo => testInfo must beNone }
-         schema.testInfos.byName("").map { testInfo => testInfo.nonEmpty must beTrue }
-         schema.testInfos.byDescription("").map { testInfo => testInfo.nonEmpty must beTrue}
-         schema.testInfos.modifiedSince(Instant.now()).map { s => s.isEmpty must beTrue }
-         schema.testInfos.createdSince(Instant.now()).map { s => s.isEmpty must beTrue }
-       }
-       Await.result(res, 5.seconds)
+      schema: TraitsSchema =>
+        import schema.db
+        import schema.driver.api._
+        val create_future = schema.create()
+        Await.result(create_future, 5.seconds)
+        val res = db.run {
+          schema.testInfos.byId(0L).map { testInfo => testInfo must beNone }
+          schema.testInfos.byName("").map { testInfo => testInfo.nonEmpty must beTrue }
+          schema.testInfos.byDescription("").map { testInfo => testInfo.nonEmpty must beTrue }
+          schema.testInfos.modifiedSince(Instant.now()).map { s => s.isEmpty must beTrue }
+          schema.testInfos.createdSince(Instant.now()).map { s => s.isEmpty must beTrue }
+          schema.testInfos.expiredSince(Instant.now()).map { s ⇒ s.isEmpty must beTrue }
+        }
+        Await.result(res, 5.seconds)
     }
 
     "support CRUD operations" in testdb("crud_operations")(name => new TraitsSchema(name)) { schema: TraitsSchema =>
-     import schema.dbConfig.db
-     val create_future = schema.create()
-     Await.result(create_future, 5.seconds)
-     val t1 = TestUsable(None, name="one")
-     val id = Await.result( schema.testInfos.runCreate(t1), 5.seconds)
-     id must beEqualTo(1)
-     val t2 = TestUsable(Some(id), name="two", description="foo")
-     Await.result(schema.testInfos.runUpdate(t2).map { count => count must beEqualTo(1) }, 5.seconds)
-     Await.result(schema.testInfos.runRetrieve(id).map {
-       case None =>
-         failure("not found");
-       case Some(tu: TestUsable) =>
-         asResult(tu.description must beEqualTo("foo"))
-     }, 5.seconds)
-     Await.result(schema.testInfos.runDelete(id).map { count => count must beEqualTo(1) }, 5.seconds)
+      val create_future = schema.create()
+      Await.result(create_future, 5.seconds)
+      val t1 = TestExpirableUsable(None, name = "one")
+      val id = Await.result(schema.testInfos.runCreate(t1), 5.seconds)
+      id must beEqualTo(1)
+      val t2 = TestExpirableUsable(Some(id), name = "two", description = "foo")
+      Await.result(schema.testInfos.runUpdate(t2).map { count => count must beEqualTo(1) }, 5.seconds)
+      Await.result(
+        schema.testInfos.runRetrieve(id).map {
+          case None =>
+            failure("not found");
+          case Some(tu: TestExpirableUsable) =>
+            asResult(tu.description must beEqualTo("foo"))
+        }, 5.seconds
+      )
+      Await.result(schema.testInfos.runDelete(id).map { count => count must beEqualTo(1) }, 5.seconds)
     }
 
     "provide correlation tables" in testdb("correlation")(name => new CorrelationSchema(name)) {
-     schema : CorrelationSchema =>
-       import schema.db
-       val create_future = schema.create()
-       Await.result(create_future, 5.seconds)
-       val t1 = TestUsable(Some(1), name="one")
-       val t2 = TestUsable(Some(2), name="two")
-       val t3 = TestUsable(Some(3), name="three")
-       val res = db.run {
-         dbio.DBIO.seq(
-           schema.As.create(t1),
-           schema.As.create(t2),
-           schema.As.create(t3),
-           schema.Bs.create(t1),
-           schema.Bs.create(t2),
-           schema.Bs.create(t3),
-           schema.A2B.associate(t1,t2),
-           schema.A2B.associate(t1,t3),
-           schema.A2B.associate(t2,t3)
-         ).flatMap { u : Unit =>
-           schema.A2B.findAssociatedB(1).map { s : Seq[Long] => asResult( s must beEqualTo( Vector(2,3) ) ) }
-           schema.A2B.findAssociatedB(t1).map { s : Seq[Long] => asResult( s must beEqualTo( Vector(2,3) ) ) }
-           schema.A2B.findAssociatedA(3).map { s : Seq[Long] => asResult( s must beEqualTo( Vector(1,2) ) ) }
-           schema.A2B.findAssociatedA(t3).map { s : Seq[Long] => asResult( s must beEqualTo( Vector(1,2) ) ) }
-         }
-       }
-       Await.result(res,5.seconds)
-       val res2 = db. run {
-         schema.As.delete(t1.getId).flatMap { n =>
-           n must beEqualTo(1)
-           schema.A2B.findAssociatedB(1).map { s : Seq[Long] => asResult ( s must beEqualTo( Vector.empty[Long] )) }
-         }
-       }
-       Await.result(res2, 5.seconds)
-       val res3 = db.run {
-         schema.A2B.findAssociatedB(2).map { s : Seq[Long] => asResult ( s must beEqualTo( Vector(3) ) ) }
-       }
-       Await.result(res3, 5.seconds)
+      schema: CorrelationSchema =>
+        import schema.db
+        val create_future = schema.create()
+        Await.result(create_future, 5.seconds)
+        val t1 = TestUsable(Some(1), name = "one")
+        val t2 = TestUsable(Some(2), name = "two")
+        val t3 = TestUsable(Some(3), name = "three")
+        val res = db.run {
+          dbio.DBIO.seq(
+            schema.As.create(t1),
+            schema.As.create(t2),
+            schema.As.create(t3),
+            schema.Bs.create(t1),
+            schema.Bs.create(t2),
+            schema.Bs.create(t3),
+            schema.A2B.associate(t1, t2),
+            schema.A2B.associate(t1, t3),
+            schema.A2B.associate(t2, t3)
+          ).flatMap { u: Unit =>
+            schema.A2B.findAssociatedB(1).map { s: Seq[Long] => asResult(s must beEqualTo(Vector(2, 3))) }
+            schema.A2B.findAssociatedB(t1).map { s: Seq[Long] => asResult(s must beEqualTo(Vector(2, 3))) }
+            schema.A2B.findAssociatedA(3).map { s: Seq[Long] => asResult(s must beEqualTo(Vector(1, 2))) }
+            schema.A2B.findAssociatedA(t3).map { s: Seq[Long] => asResult(s must beEqualTo(Vector(1, 2))) }
+          }
+        }
+        Await.result(res, 5.seconds)
+        val res2 = db.run {
+          schema.As.delete(t1.getId).flatMap { n =>
+            n must beEqualTo(1)
+            schema.A2B.findAssociatedB(1).map { s: Seq[Long] => asResult(s must beEqualTo(Vector.empty[Long])) }
+          }
+        }
+        Await.result(res2, 5.seconds)
+        val res3 = db.run {
+          schema.A2B.findAssociatedB(2).map { s: Seq[Long] => asResult(s must beEqualTo(Vector(3))) }
+        }
+        Await.result(res3, 5.seconds)
     }
 
-    "support common column mappers" in testdb("mapper")(name => MapperSchema(name)){ schema: MapperSchema =>
-       import schema.db
-       val emptyJsObject = JsObject(Map.empty[String,JsValue])
-       val now = Instant.now()
-       Await.result(schema.create,5.seconds)
-       val value = MappingsT(None, "foo".r, now, java.time.Duration.ofDays(1), 'Symbol, emptyJsObject )
-       val id = Await.result( db.run {schema.Mappings.create(value) }, 5.seconds)
-       id must beEqualTo(1)
-       val obj = Await.result( db.run { schema.Mappings.retrieve(1) }, 5.seconds)
-       obj.isDefined must beTrue
-       val mt = obj.get
-       mt.oid must beEqualTo(Some(1))
-       mt.r.pattern.pattern() must beEqualTo("foo".r.pattern.pattern())
-       mt.i must beEqualTo(now)
-       mt.d must beEqualTo(java.time.Duration.ofDays(1))
-       mt.s must beEqualTo('Symbol)
-       mt.jso must beEqualTo(emptyJsObject)
+    "support common column mappers" in testdb("mapper")(name => MapperSchema(name)) { schema: MapperSchema =>
+      import schema.db
+      val emptyJsObject = JsObject(Map.empty[String, JsValue])
+      val now = Instant.now()
+      Await.result(schema.create, 5.seconds)
+      val value = MappingsT(None, "foo".r, now, java.time.Duration.ofDays(1), 'Symbol, emptyJsObject)
+      val id = Await.result(db.run {schema.Mappings.create(value)}, 5.seconds)
+      id must beEqualTo(1)
+      val obj = Await.result(db.run {schema.Mappings.retrieve(1)}, 5.seconds)
+      obj.isDefined must beTrue
+      val mt = obj.get
+      mt.oid must beEqualTo(Some(1))
+      mt.r.pattern.pattern() must beEqualTo("foo".r.pattern.pattern())
+      mt.i must beEqualTo(now)
+      mt.d must beEqualTo(java.time.Duration.ofDays(1))
+      mt.s must beEqualTo('Symbol)
+      mt.jso must beEqualTo(emptyJsObject)
     }
   }
 }

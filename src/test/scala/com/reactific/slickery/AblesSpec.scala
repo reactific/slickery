@@ -8,7 +8,7 @@ import org.specs2.mutable.Specification
 class AblesSpec extends Specification {
 
   case class TestUsable(oid : Option[Long] = None, created : Instant = Instant.EPOCH,
-    modified : Instant = Instant.EPOCH, name: String = "", description: String = "") extends Useable {
+    modified : Instant = Instant.EPOCH, name: String = "", description: String = "") extends Slickery {
   }
 
   val tu1 = TestUsable()
@@ -39,14 +39,16 @@ class AblesSpec extends Specification {
     }
     "support Expirable" in {
       val te1 = new Expirable {
-        val expiresAt: Instant = Instant.ofEpochMilli(0)
+        val expiresAt: Instant = Instant.EPOCH
         val oid: Option[Long] = None
       }
+      te1.hasExpiry must beFalse
       val now = Instant.now()
       val te2 = new Expirable {
         val expiresAt: Instant = now
         val oid: Option[Long] = None
       }
+      te2.hasExpiry must beTrue
       te1.isExpired must beFalse
       te2.isExpired must beTrue
       te1.unexpired must beTrue
