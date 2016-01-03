@@ -68,13 +68,15 @@ class MySQLSpec extends Specification with LoggingHelper with FutureHelper {
 
 
   "MySQLSpec" should {
-    "ensure test db exists" in isViable("ensure_test_db"){ schema : MySQLSchema ⇒
-      {
+    "ensure test db exists" in {
+      pending("permissions issue")
+      /*       isViable("ensure_test_db"){ schema : MySQLSchema ⇒
+        {
         val future = schema.driver.ensureDbExists("ensure_test_db", schema.db).map { result ⇒
           result must beTrue
         }
         Await.result(future, 5.seconds)
-      } must throwA[MySQLSyntaxErrorException]
+      } */
     }
   }
 }

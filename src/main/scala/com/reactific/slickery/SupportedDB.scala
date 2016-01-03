@@ -29,7 +29,7 @@ sealed trait SupportedDB[DriverType <:JdbcDriver] extends SlickeryComponent {
   def kindName: String = getClass.getSimpleName.replaceAll("[$]", "")
 
   def makeConnectionUrl(dbName : String, host : String = "localhost", port : Int = defaultPort) : String = {
-    s"$urlPrefix://$host:$port/$dbName?useSSL=false"
+    s"$urlPrefix://$host:$port/$dbName"
   }
 
   def makeDbConfigFor(dbName: String, host : String = "localhost", port : Int = defaultPort ) : Config = {
