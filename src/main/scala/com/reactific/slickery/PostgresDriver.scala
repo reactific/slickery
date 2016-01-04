@@ -64,6 +64,12 @@ trait PostgresDriver extends ExPostgresDriver with SlickeryExtensions
     }
   }
 
+  override def dropDatabase(dbName : String, db : Database)(implicit ec: ExecutionContext) : Future[Boolean] = {
+    db.run { sqlu"""DROP DATABASE IF EXISTS "#$dbName"""" }.map { count ⇒ true }
+  }
+
+
+
   def makeSchema(schemaName: String) : DBIO[Int] = {
     log.debug(s"Creating Postgres Schema $schemaName")
     val sql = s"""CREATE SCHEMA IF NOT EXISTS "$schemaName";

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<module external.linked.project.id="slickery-build" external.linked.project.path="$MODULE_DIR$/../../project" external.root.project.path="$MODULE_DIR$/../.." external.system.id="SBT" sbt.imports="sbt._, Keys._, dsl._, _root_.sbtunidoc.Plugin._, _root_.com.etsy.sbt.CompileQuick._, _root_.com.typesafe.sbt.SbtSite._, SlickeryBuild._, _root_.sbtbuildinfo.BuildInfoPlugin.autoImport._, _root_.sbtsh.ShPlugin.autoImport._, _root_.sbtrelease.ReleasePlugin.autoImport._, _root_.com.typesafe.sbt.SbtPgp.autoImport._, _root_.com.typesafe.sbt.GitPlugin.autoImport._, _root_.com.typesafe.sbt.JavaVersionCheckPlugin.autoImport._, _root_.com.typesafe.sbt.SbtLicenseReport.autoImport._, _root_.de.heikoseeberger.sbtheader.HeaderPlugin.autoImport._, _root_.org.scoverage.coveralls.CoverallsPlugin.autoImport._, _root_.xerial.sbt.Sonatype.autoImport._, _root_.sbt.plugins.IvyPlugin, _root_.sbt.plugins.JvmPlugin, _root_.sbt.plugins.CorePlugin, _root_.sbt.plugins.JUnitXmlReportPlugin, _root_.com.reactific.sbt.ProjectPlugin, _root_.sbtbuildinfo.BuildInfoPlugin, _root_.sbtsh.ShPlugin, _root_.sbtrelease.ReleasePlugin, _root_.com.typesafe.sbt.SbtPgp, _root_.com.typesafe.sbt.GitBranchPrompt, _root_.com.typesafe.sbt.GitPlugin, _root_.com.typesafe.sbt.GitVersioning, _root_.com.typesafe.sbt.JavaVersionCheckPlugin, _root_.com.typesafe.sbt.SbtLicenseReport, _root_.de.heikoseeberger.sbtheader.AutomateHeaderPlugin, _root_.de.heikoseeberger.sbtheader.HeaderPlugin, _root_.scoverage.ScoverageSbtPlugin, _root_.org.scoverage.coveralls.CoverallsPlugin, _root_.xerial.sbt.Sonatype" sbt.resolvers="https://dl.bintray.com/typesafe/ivy-releases|maven|BinTray-typesafe, /Users/reidspencer/.ivy2/cache|ivy|Local cache, https://oss.sonatype.org/content/repositories/releases/|maven|Sonatype Releases, http://dl.bintray.com/scalaz/releases|maven|Bintray-scalaz, https://dl.bintray.com/sbt/sbt-plugin-releases|maven|BinTray-sbt, https://oss.sonatype.org/content/repositories/snapshots/|maven|Sonatype Snapshots, https://repo1.maven.org/maven2/|maven|public" type="SBT_MODULE" version="4">
+<module external.linked.project.id="slickery-build" external.linked.project.path="$MODULE_DIR$/../../project" external.root.project.path="$MODULE_DIR$/../.." external.system.id="SBT" sbt.imports="sbt._, Keys._, dsl._, _root_.sbtunidoc.Plugin._, _root_.com.etsy.sbt.CompileQuick._, _root_.com.typesafe.sbt.SbtSite._, SlickeryBuild._, _root_.sbtbuildinfo.BuildInfoPlugin.autoImport._, _root_.sbtrelease.ReleasePlugin.autoImport._, _root_.com.typesafe.sbt.SbtPgp.autoImport._, _root_.com.typesafe.sbt.GitPlugin.autoImport._, _root_.com.typesafe.sbt.JavaVersionCheckPlugin.autoImport._, _root_.com.typesafe.sbt.SbtLicenseReport.autoImport._, _root_.de.heikoseeberger.sbtheader.HeaderPlugin.autoImport._, _root_.org.scoverage.coveralls.CoverallsPlugin.autoImport._, _root_.xerial.sbt.Sonatype.autoImport._, _root_.sbt.plugins.IvyPlugin, _root_.sbt.plugins.JvmPlugin, _root_.sbt.plugins.CorePlugin, _root_.sbt.plugins.JUnitXmlReportPlugin, _root_.com.reactific.sbt.ProjectPlugin, _root_.sbtbuildinfo.BuildInfoPlugin, _root_.sbtrelease.ReleasePlugin, _root_.com.typesafe.sbt.SbtPgp, _root_.com.typesafe.sbt.GitBranchPrompt, _root_.com.typesafe.sbt.GitPlugin, _root_.com.typesafe.sbt.GitVersioning, _root_.com.typesafe.sbt.JavaVersionCheckPlugin, _root_.com.typesafe.sbt.SbtLicenseReport, _root_.de.heikoseeberger.sbtheader.AutomateHeaderPlugin, _root_.de.heikoseeberger.sbtheader.HeaderPlugin, _root_.scoverage.ScoverageSbtPlugin, _root_.org.scoverage.coveralls.CoverallsPlugin, _root_.xerial.sbt.Sonatype" sbt.resolvers="https://dl.bintray.com/typesafe/ivy-releases|maven|BinTray-typesafe, /Users/reidspencer/.ivy2/cache|ivy|Local cache, https://oss.sonatype.org/content/repositories/releases/|maven|Sonatype Releases, http://dl.bintray.com/scalaz/releases|maven|Bintray-scalaz, https://dl.bintray.com/sbt/sbt-plugin-releases|maven|BinTray-sbt, https://oss.sonatype.org/content/repositories/snapshots/|maven|Sonatype Snapshots, https://repo1.maven.org/maven2/|maven|public" type="SBT_MODULE" version="4">
   <component name="NewModuleRootManager" inherit-compiler-output="false">
     <output url="file://$MODULE_DIR$/../../project/target/idea-classes" />
     <output-test url="file://$MODULE_DIR$/../../project/target/idea-test-classes" />
@@ -21,7 +21,6 @@
           <root url="jar://$USER_HOME$/.ivy2/cache/scala_2.10/sbt_0.13/com.eed3si9n/sbt-buildinfo/jars/sbt-buildinfo-0.5.0.jar!/" />
           <root url="jar://$USER_HOME$/.ivy2/cache/org.eclipse.jgit/org.eclipse.jgit.pgm/jars/org.eclipse.jgit.pgm-3.7.0.201502260915-r.jar!/" />
           <root url="jar://$USER_HOME$/.sbt/boot/scala-2.10.4/org.scala-sbt/sbt/0.13.8/main-settings-0.13.8.jar!/" />
-          <root url="jar://$USER_HOME$/.ivy2/cache/scala_2.10/sbt_0.13/com.eed3si9n/sbt-sh/jars/sbt-sh-0.1.0.jar!/" />
           <root url="jar://$USER_HOME$/.ivy2/cache/scala_2.10/sbt_0.13/com.github.gseitz/sbt-release/jars/sbt-release-1.0.1.jar!/" />
           <root url="jar://$USER_HOME$/.sbt/boot/scala-2.10.4/org.scala-sbt/sbt/0.13.8/classpath-0.13.8.jar!/" />
           <root url="jar://$USER_HOME$/.ivy2/cache/scala_2.10/sbt_0.13/com.typesafe.sbt/sbt-git/jars/sbt-git-0.8.4.jar!/" />
@@ -31,6 +30,7 @@
           <root url="jar://$USER_HOME$/.sbt/boot/scala-2.10.4/org.scala-sbt/sbt/0.13.8/apply-macro-0.13.8.jar!/" />
           <root url="jar://$USER_HOME$/.sbt/boot/scala-2.10.4/org.scala-sbt/sbt/0.13.8/collections-0.13.8.jar!/" />
           <root url="jar://$USER_HOME$/.sbt/boot/scala-2.10.4/org.scala-sbt/sbt/0.13.8/sbinary_2.10-0.4.2.jar!/" />
+          <root url="jar://$USER_HOME$/.ivy2/cache/scala_2.10/sbt_0.13/com.reactific/sbt-project/jars/sbt-project-0.7.0.jar!/" />
           <root url="jar://$USER_HOME$/.ivy2/cache/scala_2.10/sbt_0.13/org.scoverage/sbt-coveralls/jars/sbt-coveralls-1.0.0.jar!/" />
           <root url="jar://$USER_HOME$/.ivy2/cache/net.databinder/dispatch-http_2.10/jars/dispatch-http_2.10-0.8.10.jar!/" />
           <root url="jar://$USER_HOME$/.ivy2/cache/com.fasterxml.jackson.core/jackson-core/bundles/jackson-core-2.5.1.jar!/" />
@@ -62,7 +62,6 @@
           <root url="jar://$USER_HOME$/.sbt/boot/scala-2.10.4/org.scala-sbt/sbt/0.13.8/jawn-parser_2.10-0.6.0.jar!/" />
           <root url="jar://$USER_HOME$/.sbt/boot/scala-2.10.4/org.scala-sbt/sbt/0.13.8/scala-pickling_2.10-0.10.0.jar!/" />
           <root url="jar://$USER_HOME$/.sbt/boot/scala-2.10.4/org.scala-sbt/sbt/0.13.8/process-0.13.8.jar!/" />
-          <root url="jar://$USER_HOME$/.ivy2/cache/scala_2.10/sbt_0.13/com.reactific/sbt-project/jars/sbt-project-0.5.1.jar!/" />
           <root url="jar://$USER_HOME$/.sbt/boot/scala-2.10.4/org.scala-sbt/sbt/0.13.8/test-agent-0.13.8.jar!/" />
           <root url="jar://$USER_HOME$/.ivy2/cache/org.eclipse.jgit/org.eclipse.jgit/jars/org.eclipse.jgit-3.7.0.201502260915-r.jar!/" />
           <root url="jar://$USER_HOME$/.ivy2/cache/net.databinder/dispatch-futures_2.10/jars/dispatch-futures_2.10-0.8.10.jar!/" />
@@ -183,9 +182,7 @@
           <root url="jar://$USER_HOME$/.ivy2/cache/org.scala-sbt/classfile/srcs/classfile-0.13.8-sources.jar!/" />
           <root url="jar://$USER_HOME$/.ivy2/cache/org.scala-sbt/main-settings/srcs/main-settings-0.13.8-sources.jar!/" />
           <root url="jar://$USER_HOME$/.ivy2/cache/org.scala-sbt/precompiled-2_8_2/srcs/precompiled-2_8_2-0.13.8-sources.jar!/" />
-          <root url="jar://$USER_HOME$/.ivy2/cache/scala_2.10/sbt_0.13/com.eed3si9n/sbt-sh/srcs/sbt-sh-0.1.0-sources.jar!/" />
           <root url="jar://$USER_HOME$/.ivy2/cache/org.spire-math/jawn-parser_2.10/srcs/jawn-parser_2.10-0.6.0-sources.jar!/" />
-          <root url="jar://$USER_HOME$/.ivy2/cache/scala_2.10/sbt_0.13/com.reactific/sbt-project/srcs/sbt-project-0.5.1-sources.jar!/" />
           <root url="jar://$USER_HOME$/.ivy2/cache/net.databinder/pamflet-library_2.10/srcs/pamflet-library_2.10-0.6.0-sources.jar!/" />
           <root url="jar://$USER_HOME$/.ivy2/cache/org.eclipse.jetty/jetty-servlet/srcs/jetty-servlet-7.6.9.v20130131-sources.jar!/" />
           <root url="jar://$USER_HOME$/.ivy2/cache/org.json4s/json4s-core_2.10/srcs/json4s-core_2.10-3.2.10-sources.jar!/" />
@@ -215,6 +212,7 @@
           <root url="jar://$USER_HOME$/.ivy2/cache/org.scala-tools.sbinary/sbinary_2.10/srcs/sbinary_2.10-0.4.2-sources.jar!/" />
           <root url="jar://$USER_HOME$/.ivy2/cache/org.scala-sbt.ivy/ivy/srcs/ivy-2.3.0-sbt-fccfbd44c9f64523b61398a0155784dcbaeae28f-sources.jar!/" />
           <root url="jar://$USER_HOME$/.ivy2/cache/org.scala-sbt/precompiled-2_9_2/srcs/precompiled-2_9_2-0.13.8-sources.jar!/" />
+          <root url="jar://$USER_HOME$/.ivy2/cache/scala_2.10/sbt_0.13/com.reactific/sbt-project/srcs/sbt-project-0.7.0-sources.jar!/" />
           <root url="jar://$USER_HOME$/.ivy2/cache/org.scala-sbt/completion/srcs/completion-0.13.8-sources.jar!/" />
           <root url="jar://$USER_HOME$/.ivy2/cache/org.scala-sbt/command/srcs/command-0.13.8-sources.jar!/" />
           <root url="jar://$USER_HOME$/.ivy2/cache/org.scala-sbt/precompiled-2_9_3/srcs/precompiled-2_9_3-0.13.8-sources.jar!/" />

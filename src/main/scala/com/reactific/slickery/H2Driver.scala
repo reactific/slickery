@@ -12,11 +12,14 @@ trait H2Driver extends SlickH2Driver with SlickeryExtensions { driver : JdbcDriv
     db.run { sqlu"" } map { count ⇒ true }
   }
 
+  override def dropDatabase(dbName : String, db : Database)(implicit ec: ExecutionContext) : Future[Boolean] = {
+    db.run { sqlu"" }.map { count ⇒ true }
+  }
+
   def makeSchema(schemaName: String) : DBIO[Int] = {
     val statement = s"""CREATE SCHEMA IF NOT EXISTS "$schemaName";"""
     sqlu"#$statement"
   }
-
 }
 
 object H2Driver extends H2Driver

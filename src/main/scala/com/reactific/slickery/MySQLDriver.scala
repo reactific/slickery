@@ -9,7 +9,11 @@ class MySQLDriver extends SlickMySQLDriver with SlickeryExtensions { driver : Jd
   import driver.api._
 
   override def ensureDbExists(dbName : String, db : Database)(implicit ec: ExecutionContext) : Future[Boolean] = {
-    db.run { sqlu"CREATE DATABASE IF NOT EXISTS #$dbName" }.map { count ⇒ true }
+    db.run { sqlu"""CREATE DATABASE IF NOT EXISTS "#$dbName"""" }.map { count ⇒ true }
+  }
+
+  override def dropDatabase(dbName : String, db : Database)(implicit ec: ExecutionContext) : Future[Boolean] = {
+    db.run { sqlu"""DROP DATABASE IF EXISTS "#$dbName"""" }.map { count ⇒ true }
   }
 
   def makeSchema(schemaName: String) : DBIO[Int] = {

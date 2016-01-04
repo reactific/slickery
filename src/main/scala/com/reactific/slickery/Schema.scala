@@ -39,8 +39,7 @@ abstract class Schema[DRVR <: JdbcDriver with SlickeryExtensions](
   val databaseKind : SupportedDB[DRVR],
   configPath : String,
   config : Config = ConfigFactory.load)
-  (implicit ec: ExecutionContext, classTag : ClassTag[DRVR])
-  extends SlickeryComponent {
+  (implicit ec: ExecutionContext, classTag : ClassTag[DRVR]) extends SlickeryComponent {
 
   val schemaName = schemaNamePrototype.replaceAll("[ $!@#%^&*~`]", "_")
   val dbConfig = DatabaseConfig.forConfig[DRVR](configPath, config)

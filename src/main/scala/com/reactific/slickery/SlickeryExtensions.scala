@@ -41,6 +41,8 @@ trait SlickeryExtensions extends JdbcDriver with SlickeryComponent { driver: Jdb
 
   def ensureDbExists(dbName : String, db : Database)(implicit ec: ExecutionContext) : Future[Boolean]
 
+  def dropDatabase(dbName : String, db : Database)(implicit ec: ExecutionContext) : Future[Boolean]
+
   def makeSchema(schemaName: String) : DBIO[Int]
 
 }

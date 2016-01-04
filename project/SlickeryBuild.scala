@@ -26,7 +26,7 @@ import scala.language.postfixOps
 object SlickeryBuild extends Build {
 
   // Utilities
-  val helpers             = "com.reactific"       %% "helpers"              % "0.3.1"
+  val helpers             = "com.reactific"       %% "helpers"              % "0.3.2"
   val slick               = "com.typesafe.slick"  %% "slick"                % "3.1.1"
   val h2                  = "com.h2database"       % "h2"                   % "1.4.187"
   val mysql               = "mysql"                % "mysql-connector-java" % "5.1.38"
@@ -53,7 +53,7 @@ object SlickeryBuild extends Build {
       developerUrl    := url("http://www.reactific.com/"),
       coverageFailOnMinimum := true,
       coverageExcludedPackages := classesIgnoredByScoverage,
-      coverageMinimum := 85,
+      coverageMinimum := 90,
       coverallsToken := Some("kxHEjzKGBB3aclIfZgtw6oDWERuSUudIv"),
       libraryDependencies ++= Seq(
         helpers, slick, h2, mysql, sqlite, play_json,

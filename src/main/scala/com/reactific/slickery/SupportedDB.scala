@@ -3,14 +3,14 @@ package com.reactific.slickery
 import java.sql.DriverManager
 
 import com.typesafe.config.{ConfigFactory, Config}
-import slick.backend.DatabaseConfig
 import slick.driver._
 
-import scala.reflect.ClassTag
 import scala.util.{Failure, Success, Try}
 
 sealed trait SupportedDB[DriverType <:JdbcDriver] extends SlickeryComponent {
-  def jdbcDriverClass: String
+  def jdbcDriverClassName: String
+
+  def jdbcDriverClass : Class[_]
 
   def slickDriver: String
 
@@ -19,8 +19,6 @@ sealed trait SupportedDB[DriverType <:JdbcDriver] extends SlickeryComponent {
   def driver: DriverType
 
   def config_name: String
-
-  def driverClass = Class.forName(jdbcDriverClass)
 
   def defaultPort : Int
 
@@ -38,18 +36,18 @@ sealed trait SupportedDB[DriverType <:JdbcDriver] extends SlickeryComponent {
          |  driver = "$slickDriver"
          |  db {
          |    connectionPool = disabled
-         |    driver = "$jdbcDriverClass"
+         |    driver = "$jdbcDriverClassName"
          |    url = "${makeConnectionUrl(dbName, host, port)}"
          |  }
          |}""".stripMargin)
   }
 
   def testConnection: Boolean = Try {
-    val clazz = driverClass
+    val clazz = jdbcDriverClass
     DriverManager.getConnection(connectionTestUrl)
   } match {
     case Success(conn) ⇒
-      log.warn(s"$kindName is viable")
+      log.info(s"$kindName is viable")
       true
     case Failure(xcptn) ⇒
       log.warn(s"$kindName is not viable: ${xcptn.getClass.getSimpleName + ": " + xcptn.getMessage}")
@@ -58,24 +56,26 @@ sealed trait SupportedDB[DriverType <:JdbcDriver] extends SlickeryComponent {
 }
 
 class H2_SupportedDB extends SupportedDB[H2Driver] {
-  def jdbcDriverClass = "org.h2.Driver"
+  val jdbcDriverClassName = "org.h2.Driver"
   val slickDriver = "com.reactific.slickery.H2Driver$"
   val urlPrefix = "jdbc:h2"
   val driver = H2Driver
   val config_name = "h2"
   val connectionTestUrl = "jdbc:h2:mem:test"
   val defaultPort = 0
+  val jdbcDriverClass = Class.forName(jdbcDriverClassName)
 }
 case object H2 extends H2_SupportedDB
 
 class MySQL_SupportedDB extends SupportedDB[MySQLDriver] {
-  def jdbcDriverClass = "com.mysql.jdbc.Driver"
+  val jdbcDriverClassName = "com.mysql.jdbc.Driver"
   val slickDriver = "com.reactific.slickery.MySQLDriver$"
   val urlPrefix = "jdbc:mysql"
   val driver = MySQLDriver
   val config_name = "mysql"
   val connectionTestUrl = "jdbc:mysql://localhost:3306/?useSSL=false"
   val defaultPort = 3306
+  val jdbcDriverClass = Class.forName(jdbcDriverClassName)
   override def makeConnectionUrl(dbName : String, host : String = "localhost", port : Int = defaultPort) : String = {
     super.makeConnectionUrl(dbName, host, port) + "?useSSL=false"
   }
@@ -83,24 +83,29 @@ class MySQL_SupportedDB extends SupportedDB[MySQLDriver] {
 case object MySQL extends MySQL_SupportedDB
 
 class SQLite_SupportedDB extends SupportedDB[SQLiteDriver] {
-  def jdbcDriverClass = "org.sqlite.JDBC"
+  val jdbcDriverClassName = "org.sqlite.JDBC"
   val slickDriver = "com.reactific.slickery.SQLiteDriver$"
-  val urlPrefix = "jdbc:sqllite"
+  val urlPrefix = "jdbc:sqlite"
   val driver = SQLiteDriver
   val config_name = "sqlite"
   val connectionTestUrl = "jdbc:sqlite:test"
   val defaultPort = 0
+  val jdbcDriverClass = Class.forName(jdbcDriverClassName)
+  override def makeConnectionUrl(dbName : String, host : String = "localhost", port : Int = defaultPort) : String = {
+    s"$urlPrefix:$dbName"
+  }
 }
 case object SQLite extends SQLite_SupportedDB
 
 class PostgresQL_SupportedDB extends SupportedDB[PostgresDriver] {
-  def jdbcDriverClass = "org.postgresql.Driver"
+  val jdbcDriverClassName = "org.postgresql.Driver"
   val slickDriver = "com.reactific.slickery.PostgresDriver$"
   val urlPrefix = "jdbc:postgresql"
   val driver = PostgresDriver
   val config_name = "postgresql"
   val connectionTestUrl = "jdbc:postgresql://localhost:5432/test"
   val defaultPort = 5432
+  val jdbcDriverClass = Class.forName(jdbcDriverClassName)
 }
 case object PostgresQL extends PostgresQL_SupportedDB
 

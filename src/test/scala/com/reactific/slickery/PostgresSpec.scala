@@ -1,7 +1,6 @@
 package com.reactific.slickery
 
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.TimeUnit
 
 import com.github.tminglei.slickpg.{LTree, `[_,_]`, Range}
 import com.reactific.helpers.{FutureHelper, LoggingHelper}

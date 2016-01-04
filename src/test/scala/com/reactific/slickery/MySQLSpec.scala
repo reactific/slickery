@@ -1,6 +1,5 @@
 package com.reactific.slickery
 
-import com.mysql.jdbc.exceptions.jdbc4.MySQLSyntaxErrorException
 import com.reactific.helpers.{FutureHelper, LoggingHelper}
 import com.reactific.slickery.Storable.OIDType
 import org.specs2.execute.{Result, AsResult}
@@ -69,8 +68,8 @@ class MySQLSpec extends Specification with LoggingHelper with FutureHelper {
 
   "MySQLSpec" should {
     "ensure test db exists" in {
-      pending("permissions issue")
-      /*       isViable("ensure_test_db"){ schema : MySQLSchema ⇒
+      pending(": permissions issue")
+      /* FIXME:      isViable("ensure_test_db"){ schema : MySQLSchema ⇒
         {
         val future = schema.driver.ensureDbExists("ensure_test_db", schema.db).map { result ⇒
           result must beTrue
