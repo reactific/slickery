@@ -6,7 +6,7 @@ import scala.concurrent.{Future, ExecutionContext}
 
 import java.io.File
 
-class SQLiteDriver extends SlickSQLiteDriver with SlickeryExtensions { driver : JdbcDriver ⇒
+class SQLiteDriver extends SlickSQLiteDriver with SlickeryDriver { driver : JdbcDriver ⇒
 
   import driver.api._
 

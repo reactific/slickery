@@ -4,7 +4,7 @@ import slick.driver.{H2Driver ⇒ SlickH2Driver, JdbcDriver}
 
 import scala.concurrent.{Future, ExecutionContext}
 
-trait H2Driver extends SlickH2Driver with SlickeryExtensions { driver : JdbcDriver ⇒
+trait H2Driver extends SlickH2Driver with SlickeryDriver { driver : JdbcDriver ⇒
 
   import driver.api._
 

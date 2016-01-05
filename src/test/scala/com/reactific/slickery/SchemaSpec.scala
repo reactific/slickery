@@ -87,7 +87,8 @@ class TraitsSchema(name : String) extends Schema("test", H2, name, SchemaSpecHel
 }
 
 case class MappingsT(
-    oid: Option[Long] = None, r: Regex, i: Instant, d: java.time.Duration, s: Symbol, jso: JsValue) extends Storable
+  oid: Option[Long] = None, r: Regex, i: Instant, d: java.time.Duration, s: Symbol, jso: JsValue, config: Config
+) extends Storable
 
 case class MapperSchema(name : String) extends Schema("mapper", H2, name, SchemaSpecHelper.testDbConfig(name)) {
   import this.driver.api._
@@ -95,13 +96,15 @@ case class MapperSchema(name : String) extends Schema("mapper", H2, name, Schema
   implicit val durationMapper = driver.durationMapper
   implicit val symbolMapper = driver.symbolMapper
   implicit val jsValueMapper = driver.jsValueMapper
+  implicit val configMapper = driver.configMapper
   class MappingsRow(tag:Tag) extends StorableRow[MappingsT](tag, "Mappings") {
     def r = column[Regex](nm("r"))
     def i = column[Instant](nm("i"))
     def d = column[java.time.Duration](nm("d"))
     def s = column[Symbol](nm("s"))
     def jso = column[JsValue](nm("jso"))
-    def * = (oid.?,r,i,d,s,jso) <> (MappingsT.tupled, MappingsT.unapply)
+    def config = column[Config](nm("config"))
+    def * = (oid.?,r,i,d,s,jso,config) <> (MappingsT.tupled, MappingsT.unapply)
   }
   object Mappings extends StorableQuery[MappingsT, MappingsRow](new MappingsRow(_))
   def schemas = Map("Mappings" → Mappings.schema)
@@ -301,10 +304,11 @@ class SchemaSpec extends SlickerySpec with FutureHelper {
 
     "support common column mappers" in testdb("mapper")(name => MapperSchema(name)) { schema: MapperSchema =>
       import schema.db
+      Await.result(schema.create(), 5.seconds)
       val emptyJsObject = JsObject(Map.empty[String, JsValue])
       val now = Instant.now()
-      Await.result(schema.create, 5.seconds)
-      val value = MappingsT(None, "foo".r, now, java.time.Duration.ofDays(1), 'Symbol, emptyJsObject)
+      val config = ConfigFactory.parseString("{ \"key\" : 5}")
+      val value = MappingsT(None, "foo".r, now, java.time.Duration.ofDays(1), 'Symbol, emptyJsObject, config)
       val id = Await.result(db.run {schema.Mappings.create(value)}, 5.seconds)
       id must beEqualTo(1)
       val obj = Await.result(db.run {schema.Mappings.retrieve(1)}, 5.seconds)
@@ -316,6 +320,7 @@ class SchemaSpec extends SlickerySpec with FutureHelper {
       mt.d must beEqualTo(java.time.Duration.ofDays(1))
       mt.s must beEqualTo('Symbol)
       mt.jso must beEqualTo(emptyJsObject)
+      mt.config must beEqualTo(config)
     }
   }
 }

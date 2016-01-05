@@ -109,14 +109,37 @@ class PostgresQL_SupportedDB extends SupportedDB[PostgresDriver] {
 }
 case object PostgresQL extends PostgresQL_SupportedDB
 
-object SupportedDB {
+object SupportedDB extends SlickeryComponent {
   def all  = Seq( H2, MySQL, SQLite, PostgresQL)
+
+  def forConfig(config : Config, path: String) : Option[SupportedDB[_]] = {
+    Try { config.getConfig(path) } match {
+      case Success(dbConfig) ⇒ {
+        if (dbConfig.hasPath("db.url") && dbConfig.hasPath("db.driver")) {
+          Try {dbConfig.getString("driver")} match {
+            case Success(driver) ⇒
+              forDriverName(driver)
+            case Failure(xcptn) ⇒
+              log.warn(s"Error finding SupportedDB in configuration: ", xcptn)
+              None
+          }
+        } else {
+          log.warn(s"Configuration lacks 'db.url' and 'db.driver' paths")
+          None
+        }
+      }
+      case Failure(xcptn) ⇒
+        log.warn(s"Error finding SupportedDB in configuration: ", xcptn)
+        None
+    }
+  }
 
   def forDriverName(driverName: String) : Option[SupportedDB[_]] = {
     for (sdb <- all) {
       if (sdb.slickDriver.startsWith(driverName))
         return Some(sdb)
     }
+    log.warn(s"SupportedDB for driver name '$driverName' not found.")
     None
   }
 
@@ -125,6 +148,7 @@ object SupportedDB {
       if (url.startsWith(sdb.urlPrefix))
         return Some(sdb)
     }
+    log.warn(s"SupportedDB for url '$url' not found.")
     None
   }
 }

@@ -4,7 +4,7 @@ import slick.driver.{MySQLDriver ⇒ SlickMySQLDriver, JdbcDriver}
 
 import scala.concurrent.{Future, ExecutionContext}
 
-class MySQLDriver extends SlickMySQLDriver with SlickeryExtensions { driver : JdbcDriver ⇒
+class MySQLDriver extends SlickMySQLDriver with SlickeryDriver { driver : SlickeryDriver ⇒
 
   import driver.api._
 

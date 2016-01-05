@@ -17,11 +17,9 @@
 package com.reactific.slickery
 
 import java.time.Instant
-import java.util.concurrent.TimeUnit
 
 import com.typesafe.config.{Config, ConfigFactory}
 import slick.backend.DatabaseConfig
-import slick.driver.JdbcDriver
 import slick.jdbc.ResultSetAction
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -34,7 +32,7 @@ import scala.reflect.ClassTag
  * all database entities to have a particular shape, that shape is enforced in the EntityTable class. Note that
  * Component extends Sketch which is mixed in to other components but resolved by the Schema class.
  */
-abstract class Schema[DRVR <: JdbcDriver with SlickeryExtensions](
+abstract class Schema[DRVR <: SlickeryDriver](
   schemaNamePrototype: String,
   val databaseKind : SupportedDB[DRVR],
   configPath : String,

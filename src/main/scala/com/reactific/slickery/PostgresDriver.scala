@@ -10,7 +10,7 @@ import scala.concurrent.{Future, ExecutionContext}
   *
   * Description of thing
   */
-trait PostgresDriver extends ExPostgresDriver with SlickeryExtensions
+trait PostgresDriver extends ExPostgresDriver with SlickeryDriver
   with PgArraySupport
   with PgDateSupport
   with PgRangeSupport
