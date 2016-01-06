@@ -15,7 +15,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 
 case class SQLiteBean(oid : Option[OIDType], json : JsValue, duration: Duration) extends Storable
 
-class SQLiteSchema(name : String) extends Schema[SQLiteDriver](name, SQLite, name, SQLite.makeDbConfigFor(name)) {
+class SQLiteSchema(name : String) extends Schema[SQLiteDriver](name, name, SQLite.makeDbConfigFor(name)) {
 
   import driver.api._
   import driver._

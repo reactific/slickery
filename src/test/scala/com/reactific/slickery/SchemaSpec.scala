@@ -17,7 +17,7 @@ package com.reactific.slickery
 
 import java.time.Instant
 
-import com.reactific.helpers.{FutureHelper, TryWith, LoggingHelper}
+import com.reactific.helpers.{FutureHelper, LoggingHelper}
 import com.reactific.slickery.Storable.OIDType
 import com.typesafe.config.{ConfigFactory, Config}
 import org.h2.jdbc.JdbcSQLException
@@ -29,7 +29,7 @@ import slick.lifted.ProvenShape
 import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.util.{Success, Failure}
+import scala.util.Failure
 import scala.util.matching.Regex
 
 object SchemaSpecHelper extends SlickeryTestHelpers {
@@ -38,7 +38,7 @@ object SchemaSpecHelper extends SlickeryTestHelpers {
 case class Foo(name: String, oid: Option[OIDType] = None, description: String = "", created : Instant = Instant.EPOCH,
     modified : Instant = Instant.EPOCH, expiresAt : Instant = Instant.EPOCH) extends Slickery with Expirable
 
-case class TestSchema(name : String) extends Schema("testSchema", H2, name, SchemaSpecHelper.testDbConfig(name)) {
+case class TestSchema(name : String) extends Schema[H2Driver]("testSchema", name, SchemaSpecHelper.testDbConfig(name)) {
 
   import driver.api._
 
@@ -58,7 +58,7 @@ case class TestSchema(name : String) extends Schema("testSchema", H2, name, Sche
 case class TestUsable(oid : Option[Long], created : Instant = Instant.EPOCH, modified: Instant = Instant.EPOCH,
                       name: String = "", description: String = "") extends Slickery
 
-case class CorrelationSchema(name : String) extends Schema(name, H2, name, SchemaSpecHelper.testDbConfig(name)) {
+case class CorrelationSchema(name : String) extends Schema[H2Driver](name, name, SchemaSpecHelper.testDbConfig(name)) {
   import driver.api._
   case class ARow(tag:Tag) extends SlickeryRow[TestUsable](tag, "As") {
     def * = (oid.?,created,modified,name,description) <> (TestUsable.tupled, TestUsable.unapply)
@@ -76,7 +76,7 @@ case class CorrelationSchema(name : String) extends Schema(name, H2, name, Schem
 case class TestExpirableUsable(oid : Option[Long], created : Instant = Instant.EPOCH, modified: Instant = Instant.EPOCH,
     expiresAt : Instant = Instant.EPOCH, name: String = "", description: String = "") extends Slickery with Expirable
 
-class TraitsSchema(name : String) extends Schema("test", H2, name, SchemaSpecHelper.testDbConfig(name)) {
+class TraitsSchema(name : String) extends Schema[H2Driver]("test", name, SchemaSpecHelper.testDbConfig(name)) {
   import driver.api._
   class TraitsRow(tag : Tag) extends ExpirableSlickeryRow[TestExpirableUsable](tag, "TraitsRow") {
     def * = (oid.?,created,modified,expiresAt,name,description) <> (TestExpirableUsable.tupled, TestExpirableUsable.unapply)
@@ -90,7 +90,7 @@ case class MappingsT(
   oid: Option[Long] = None, r: Regex, i: Instant, d: java.time.Duration, s: Symbol, jso: JsValue, config: Config
 ) extends Storable
 
-case class MapperSchema(name : String) extends Schema("mapper", H2, name, SchemaSpecHelper.testDbConfig(name)) {
+case class MapperSchema(name : String) extends Schema[H2Driver]("mapper", name, SchemaSpecHelper.testDbConfig(name)) {
   import this.driver.api._
   implicit val regexMapper = driver.regexMapper
   implicit val durationMapper = driver.durationMapper
@@ -130,7 +130,7 @@ class SchemaSpec extends SlickerySpec with FutureHelper {
              |}""".stripMargin
         )
       }
-      FakeSchema("junk", badDbConfig("junk")) must throwA[slick.SlickException]
+      FakeSchema("junk", badDbConfig("junk")) must throwA[SlickeryException]
     }
 
     "throw on unsupported driver" in {
@@ -146,7 +146,7 @@ class SchemaSpec extends SlickerySpec with FutureHelper {
              |}""".stripMargin
         )
       }
-      FakeSchema("nodriver", testDbConfig("nodriver")) must throwA[slick.SlickException]
+      FakeSchema("nodriver", testDbConfig("nodriver")) must throwA[SlickeryException]
     }
     "validate empty database generates error" in
       testdb("validate_empty")(name => new TestSchema(name)) { schema: TestSchema =>
@@ -228,11 +228,9 @@ class SchemaSpec extends SlickerySpec with FutureHelper {
 
     "allow table traits to be combined" in testdb("combine_traits")(name => new TraitsSchema(name)) {
       schema: TraitsSchema =>
-        import schema.db
-        import schema.driver.api._
         val create_future = schema.create()
         Await.result(create_future, 5.seconds)
-        val res = db.run {
+        val res = schema.db.run {
           schema.testInfos.byId(0L).map { testInfo => testInfo must beNone }
           schema.testInfos.byName("").map { testInfo => testInfo.nonEmpty must beTrue }
           schema.testInfos.byDescription("").map { testInfo => testInfo.nonEmpty must beTrue }

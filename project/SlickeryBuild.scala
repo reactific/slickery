@@ -26,8 +26,10 @@ import scala.language.postfixOps
 object SlickeryBuild extends Build {
 
   // Utilities
-  val helpers             = "com.reactific"       %% "helpers"              % "0.3.2"
+  val helpers             = "com.reactific"       %% "helpers"              % "0.3.3"
+  val helpers_tk          = "com.reactific"       %% "helpers-testkit"      % "0.3.3"
   val slick               = "com.typesafe.slick"  %% "slick"                % "3.1.1"
+  val hickaricp           = "com.typesafe.slick"  %% "slick-hikaricp"       % "3.1.1"
   val h2                  = "com.h2database"       % "h2"                   % "1.4.187"
   val mysql               = "mysql"                % "mysql-connector-java" % "5.1.38"
   val sqlite              = "org.xerial"           % "sqlite-jdbc"          % "3.8.11.2"
@@ -41,8 +43,8 @@ object SlickeryBuild extends Build {
     "<empty>" // Avoids warnings from scoverage
   ).mkString(";")
 
-
-  lazy val root  = sbt.Project("slickery", file("."))
+  lazy val root  : sbt.Project =
+    sbt.Project("slickery", file("."), aggregate=Seq(testkit))
     .enablePlugins(ProjectPlugin, ScoverageSbtPlugin)
     .settings(
       organization    := "com.reactific",
@@ -57,7 +59,20 @@ object SlickeryBuild extends Build {
       coverallsToken := Some("kxHEjzKGBB3aclIfZgtw6oDWERuSUudIv"),
       libraryDependencies ++= Seq(
         helpers, slick, h2, mysql, sqlite, play_json,
-        slick_pg, slick_pg_play_json, slick_pg_date2, slick_pg_jts
+        slick_pg, slick_pg_play_json, slick_pg_date2, slick_pg_jts, hickaricp
       )
     )
+
+  lazy val testkit : sbt.Project =
+    sbt.Project("slickery-testkit", file("testkit"), dependencies=Seq(root))
+      .enablePlugins(ProjectPlugin)
+      .settings(
+        organization    := "com.reactific",
+        copyrightHolder := "Reactific Software LLC",
+        copyrightYears  := Seq(2015),
+        codePackage     := "com.reactific.slickery",
+        titleForDocs    := "Reactific Slickery Test Kit",
+        developerUrl    := url("http://www.reactific.com/"),
+        libraryDependencies ++= Seq(helpers_tk)
+      )
 }

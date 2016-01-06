@@ -1,27 +1,32 @@
-package com.reactific.slickery
+package main.com.reactific.slickery.testkit
 
 import java.io.File
 
 import com.reactific.helpers.{FutureHelper, LoggingHelper}
+import com.reactific.helpers.testkit.HelperSpecification
+import com.reactific.slickery.{SlickeryDriver, Schema}
 import com.typesafe.config.{ConfigFactory, Config}
-import org.specs2.execute.{AsResult, Result}
-import org.specs2.mutable.Specification
+import org.specs2.execute.{Result, AsResult}
+import org.specs2.specification.Fixture
 import slick.backend.DatabaseConfig
 import slick.driver.JdbcProfile
 
-import scala.concurrent.ExecutionContext.Implicits.global
+class SlickerySpec {
 
-case class FakeSchema(name : String, config: Config) extends Schema[H2Driver](name,name,config) {
-
-  import driver.SchemaDescription
-
-  override def schemas: Map[String,SchemaDescription] = ???
 }
 
 trait SlickeryTestHelpers extends LoggingHelper with FutureHelper {
-  final val baseDir = "./target/testdb"
+}
 
-  def testDbConfig(name : String) : Config = {
+/** Title Of Thing.
+  *
+  * Description of thing
+  */
+class SlickerySpecification extends HelperSpecification with SlickeryTestHelpers {
+  def slickeryTestDir = "./target/slickeryDB"
+
+  def slickeryDbConfig(name : String) : Config = {
+
     ConfigFactory.parseString(
       s"""$name {
          |  driver = "com.reactific.slickery.H2Driver$$"
@@ -32,6 +37,28 @@ trait SlickeryTestHelpers extends LoggingHelper with FutureHelper {
          |  }
          |}""".stripMargin)
   }
+
+  def WithSchema[D <: SlickeryDriver, S <: Schema[D], R]
+    (create: ⇒ S)(f : S ⇒ R)(implicit evidence : AsResult[R]) : Result = {
+    val fixture = create
+    try {
+      import fixture.driver
+      driver.ensureDbExists()
+    } finally {
+
+    }
+  }
+  class SchemaFixture[T <: CoreSchema[_]](create: ⇒ T) extends Fixture[T] {
+    def apply[R](f : T ⇒ R)(implicit evidence : AsResult[R]) : Result = {
+      val fixture = create
+      try {
+        AsResult(f(fixture))
+      } finally {
+        fixture.drop()
+      }
+    }
+  }
+
 
   def testdb[S,T](name : String)(c: (String) => S)(f: (S) => T )(implicit evidence: AsResult[T]) = {
     try {
@@ -46,12 +73,5 @@ trait SlickeryTestHelpers extends LoggingHelper with FutureHelper {
   }
 
   def jdbcProfile(name : String) = DatabaseConfig.forConfig[JdbcProfile](name, testDbConfig(name)).driver
-}
-
-/** Title Of Thing.
-  *
-  * Description of thing
-  */
-class SlickerySpec extends Specification with SlickeryTestHelpers {
 
 }

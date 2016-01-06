@@ -3,11 +3,10 @@ package com.reactific.slickery
 import java.sql.DriverManager
 
 import com.typesafe.config.{ConfigFactory, Config}
-import slick.driver._
 
 import scala.util.{Failure, Success, Try}
 
-sealed trait SupportedDB[DriverType <:JdbcDriver] extends SlickeryComponent {
+sealed trait SupportedDB[DriverType <: SlickeryDriver] extends SlickeryComponent {
   def jdbcDriverClassName: String
 
   def jdbcDriverClass : Class[_]
@@ -35,7 +34,6 @@ sealed trait SupportedDB[DriverType <:JdbcDriver] extends SlickeryComponent {
       s"""$dbName {
          |  driver = "$slickDriver"
          |  db {
-         |    connectionPool = disabled
          |    driver = "$jdbcDriverClassName"
          |    url = "${makeConnectionUrl(dbName, host, port)}"
          |  }
@@ -112,7 +110,7 @@ case object PostgresQL extends PostgresQL_SupportedDB
 object SupportedDB extends SlickeryComponent {
   def all  = Seq( H2, MySQL, SQLite, PostgresQL)
 
-  def forConfig(config : Config, path: String) : Option[SupportedDB[_]] = {
+  def forConfig(path: String, config : Config = ConfigFactory.load() ) : Option[SupportedDB[_]] = {
     Try { config.getConfig(path) } match {
       case Success(dbConfig) ⇒ {
         if (dbConfig.hasPath("db.url") && dbConfig.hasPath("db.driver")) {

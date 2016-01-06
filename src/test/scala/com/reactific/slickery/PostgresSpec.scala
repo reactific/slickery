@@ -36,7 +36,7 @@ object PostgresSchema {
   }
 }
 
-case class PostgresSchema(name: String) extends Schema(name, PostgresQL, name, PostgresSchema.getDbConf(name)) {
+case class PostgresSchema(name: String) extends Schema[PostgresDriver](name, name, PostgresSchema.getDbConf(name)) {
 
   import slick.profile.SqlProfile.ColumnOption.SqlType
   import driver.api._
@@ -96,6 +96,10 @@ class PostgresSpec extends Specification with LoggingHelper with FutureHelper {
 
 
   "PostgresQL" should {
+    "be viable .. or not" in {
+      postgresIsViable
+      success
+    }
     "handle extension types" in postgresViable("handle_extension_types") { schema : PostgresSchema =>
       val future = schema.driver.ensureDbExists(schema.name, schema.db).flatMap { bool ⇒
         val range = Range[Int](2, 7)

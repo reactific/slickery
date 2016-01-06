@@ -9,32 +9,32 @@ class SupportedDBSpec extends Specification {
     "find H2" in {
       SupportedDB.forDriverName("com.reactific.slickery.H2Driver") must beEqualTo(Some(H2))
       SupportedDB.forJDBCUrl("jdbc:h2") must beEqualTo(Some(H2))
-      SupportedDB.forConfig(H2.makeDbConfigFor("foo"),"foo") must beEqualTo(Some(H2))
+      SupportedDB.forConfig("foo", H2.makeDbConfigFor("foo")) must beEqualTo(Some(H2))
     }
     "find MySQL" in {
       SupportedDB.forDriverName("com.reactific.slickery.MySQLDriver") must beEqualTo(Some(MySQL))
       SupportedDB.forJDBCUrl("jdbc:mysql") must beEqualTo(Some(MySQL))
-      SupportedDB.forConfig(MySQL.makeDbConfigFor("foo"),"foo") must beEqualTo(Some(MySQL))
+      SupportedDB.forConfig("foo", MySQL.makeDbConfigFor("foo")) must beEqualTo(Some(MySQL))
     }
     "find SQLite" in {
       SupportedDB.forDriverName("com.reactific.slickery.SQLiteDriver") must beEqualTo(Some(SQLite))
       SupportedDB.forJDBCUrl("jdbc:sqlite") must beEqualTo(Some(SQLite))
-      SupportedDB.forConfig(SQLite.makeDbConfigFor("foo"),"foo") must beEqualTo(Some(SQLite))
+      SupportedDB.forConfig("foo", SQLite.makeDbConfigFor("foo")) must beEqualTo(Some(SQLite))
     }
     "find Postgres" in {
       SupportedDB.forDriverName("com.reactific.slickery.PostgresDriver") must beEqualTo(Some(PostgresQL))
       SupportedDB.forJDBCUrl("jdbc:postgresql:") must beEqualTo(Some(PostgresQL))
-      SupportedDB.forConfig(PostgresQL.makeDbConfigFor("foo"),"foo") must beEqualTo(Some(PostgresQL))
+      SupportedDB.forConfig("foo", PostgresQL.makeDbConfigFor("foo")) must beEqualTo(Some(PostgresQL))
     }
     "not find non-existent db" in {
       SupportedDB.forDriverName("foo") must beEqualTo(None)
       SupportedDB.forJDBCUrl("jdbc:db2") must beEqualTo(None)
-      SupportedDB.forConfig(H2.makeDbConfigFor("foo"), "bar") must beEqualTo(None)
-      SupportedDB.forConfig(ConfigFactory.parseString("{}"), "foo") must beEqualTo(None)
-      SupportedDB.forConfig(ConfigFactory.parseString(
-        """{ "foo" : { "driver" : "nada", "db" : { "url" : "", "driver" : ""}}}"""), "foo") must beEqualTo(None)
-      SupportedDB.forConfig(ConfigFactory.parseString(
-        """{ "foo" : { "driver" : "com.reactific.slickery.H2Driver$", db : {}}}"""), "foo") must beEqualTo(None)
+      SupportedDB.forConfig("bar", H2.makeDbConfigFor("foo")) must beEqualTo(None)
+      SupportedDB.forConfig("foo", ConfigFactory.parseString("{}")) must beEqualTo(None)
+      SupportedDB.forConfig("foo", ConfigFactory.parseString(
+        """{ "foo" : { "driver" : "nada", "db" : { "url" : "", "driver" : ""}}}""")) must beEqualTo(None)
+      SupportedDB.forConfig("foo", ConfigFactory.parseString(
+        """{ "foo" : { "driver" : "com.reactific.slickery.H2Driver$", db : {}}}""")) must beEqualTo(None)
     }
     "provide makeSchema for each" in {
       H2.driver.makeSchema("h2-makeSchema")
@@ -60,7 +60,6 @@ class SupportedDBSpec extends Specification {
         s"""foo {
             |  driver = "com.reactific.slickery.H2Driver$$"
             |  db {
-            |    connectionPool = disabled
             |    driver = "org.h2.Driver"
             |    url = "${H2.makeConnectionUrl("foo", "bar", 42)}"
             |  }
@@ -85,7 +84,6 @@ class SupportedDBSpec extends Specification {
         s"""foo {
             |  driver = "com.reactific.slickery.MySQLDriver$$"
             |  db {
-            |    connectionPool = disabled
             |    driver = "com.mysql.jdbc.Driver"
             |    url = "${MySQL.makeConnectionUrl("foo", "bar", 42)}"
             |  }
@@ -110,7 +108,6 @@ class SupportedDBSpec extends Specification {
         s"""foo {
             |  driver = "com.reactific.slickery.SQLiteDriver$$"
             |  db {
-            |    connectionPool = disabled
             |    driver = "org.sqlite.JDBC"
             |    url = "${SQLite.makeConnectionUrl("foo", "bar", 42)}"
             |  }
@@ -135,7 +132,6 @@ class SupportedDBSpec extends Specification {
         s"""foo {
             |  driver = "com.reactific.slickery.PostgresDriver$$"
             |  db {
-            |    connectionPool = disabled
             |    driver = "org.postgresql.Driver"
             |    url = "${PostgresQL.makeConnectionUrl("foo", "bar", 42)}"
             |  }

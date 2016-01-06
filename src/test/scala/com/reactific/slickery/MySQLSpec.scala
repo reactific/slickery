@@ -15,7 +15,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 
 case class MySQLBean(oid : Option[OIDType], json : JsValue, duration: Duration) extends Storable
 
-class MySQLSchema(name : String) extends Schema[MySQLDriver](name, MySQL, name, MySQL.makeDbConfigFor(name)) {
+class MySQLSchema(name : String) extends Schema[MySQLDriver](name, name, MySQL.makeDbConfigFor(name)) {
 
   import driver.api._
   import driver._
@@ -67,6 +67,10 @@ class MySQLSpec extends Specification with LoggingHelper with FutureHelper {
 
 
   "MySQLSpec" should {
+    "be viable .. or not" in {
+      mySqlIsViable
+      success
+    }
     "ensure test db exists" in {
       pending(": permissions issue")
       /* FIXME:      isViable("ensure_test_db"){ schema : MySQLSchema ⇒
