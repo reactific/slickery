@@ -1,0 +1,1 @@
+../../../../../../../testkit/src/main/scala/com/reactific/slickery/testkit/SlickerySpecification.scala

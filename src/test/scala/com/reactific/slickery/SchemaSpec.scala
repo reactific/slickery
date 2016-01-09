@@ -87,20 +87,15 @@ class TraitsSchema(name : String) extends Schema[H2Driver]("test", name, SchemaS
 }
 
 case class MappingsT(
-  oid: Option[Long] = None, r: Regex, i: Instant, d: java.time.Duration, s: Symbol, jso: JsValue, config: Config
+  oid: Option[Long] = None, r: Regex, i: Instant, d: Duration, s: Symbol, jso: JsValue, config: Config
 ) extends Storable
 
 case class MapperSchema(name : String) extends Schema[H2Driver]("mapper", name, SchemaSpecHelper.testDbConfig(name)) {
   import this.driver.api._
-  implicit val regexMapper = driver.regexMapper
-  implicit val durationMapper = driver.durationMapper
-  implicit val symbolMapper = driver.symbolMapper
-  implicit val jsValueMapper = driver.jsValueMapper
-  implicit val configMapper = driver.configMapper
   class MappingsRow(tag:Tag) extends StorableRow[MappingsT](tag, "Mappings") {
     def r = column[Regex](nm("r"))
     def i = column[Instant](nm("i"))
-    def d = column[java.time.Duration](nm("d"))
+    def d = column[Duration](nm("d"))
     def s = column[Symbol](nm("s"))
     def jso = column[JsValue](nm("jso"))
     def config = column[Config](nm("config"))
@@ -306,7 +301,7 @@ class SchemaSpec extends SlickerySpec with FutureHelper {
       val emptyJsObject = JsObject(Map.empty[String, JsValue])
       val now = Instant.now()
       val config = ConfigFactory.parseString("{ \"key\" : 5}")
-      val value = MappingsT(None, "foo".r, now, java.time.Duration.ofDays(1), 'Symbol, emptyJsObject, config)
+      val value = MappingsT(None, "foo".r, now, 1.day, 'Symbol, emptyJsObject, config)
       val id = Await.result(db.run {schema.Mappings.create(value)}, 5.seconds)
       id must beEqualTo(1)
       val obj = Await.result(db.run {schema.Mappings.retrieve(1)}, 5.seconds)
@@ -315,7 +310,7 @@ class SchemaSpec extends SlickerySpec with FutureHelper {
       mt.oid must beEqualTo(Some(1))
       mt.r.pattern.pattern() must beEqualTo("foo".r.pattern.pattern())
       mt.i must beEqualTo(now)
-      mt.d must beEqualTo(java.time.Duration.ofDays(1))
+      mt.d must beEqualTo(1.day)
       mt.s must beEqualTo('Symbol)
       mt.jso must beEqualTo(emptyJsObject)
       mt.config must beEqualTo(config)

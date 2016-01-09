@@ -26,8 +26,8 @@ import scala.language.postfixOps
 object SlickeryBuild extends Build {
 
   // Utilities
-  val helpers             = "com.reactific"       %% "helpers"              % "0.3.3"
-  val helpers_tk          = "com.reactific"       %% "helpers-testkit"      % "0.3.3"
+  val helpers             = "com.reactific"       %% "helpers"              % "0.3.4"
+  val helpers_tk          = "com.reactific"       %% "helpers-testkit"      % "0.3.4"
   val slick               = "com.typesafe.slick"  %% "slick"                % "3.1.1"
   val hickaricp           = "com.typesafe.slick"  %% "slick-hikaricp"       % "3.1.1"
   val h2                  = "com.h2database"       % "h2"                   % "1.4.187"
@@ -58,13 +58,13 @@ object SlickeryBuild extends Build {
       coverageMinimum := 90,
       coverallsToken := Some("kxHEjzKGBB3aclIfZgtw6oDWERuSUudIv"),
       libraryDependencies ++= Seq(
-        helpers, slick, h2, mysql, sqlite, play_json,
+        helpers, helpers_tk, slick, h2, mysql, sqlite, play_json,
         slick_pg, slick_pg_play_json, slick_pg_date2, slick_pg_jts, hickaricp
       )
     )
 
   lazy val testkit : sbt.Project =
-    sbt.Project("slickery-testkit", file("testkit"), dependencies=Seq(root))
+    sbt.Project("slickery-testkit", file("./testkit"), dependencies=Seq(root))
       .enablePlugins(ProjectPlugin)
       .settings(
         organization    := "com.reactific",

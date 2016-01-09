@@ -2,6 +2,7 @@ package com.reactific.slickery
 
 import com.typesafe.config.{ConfigFactory, Config}
 import org.specs2.mutable.Specification
+import scala.concurrent.ExecutionContext.Implicits.global
 
 class SupportedDBSpec extends Specification {
 
@@ -37,10 +38,10 @@ class SupportedDBSpec extends Specification {
         """{ "foo" : { "driver" : "com.reactific.slickery.H2Driver$", db : {}}}""")) must beEqualTo(None)
     }
     "provide makeSchema for each" in {
-      H2.driver.makeSchema("h2-makeSchema")
-      MySQL.driver.makeSchema("mysql-makeSchema")
-      SQLite.driver.makeSchema("sqlite-makeSchema")
-      PostgresQL.driver.makeSchema("postgres-makeSchema")
+      H2.driver.createSchema("h2-makeSchema")
+      MySQL.driver.createSchema("mysql-makeSchema")
+      SQLite.driver.createSchema("sqlite-makeSchema")
+      PostgresQL.driver.createSchema("postgres-makeSchema")
       success
     }
   }
@@ -60,6 +61,7 @@ class SupportedDBSpec extends Specification {
         s"""foo {
             |  driver = "com.reactific.slickery.H2Driver$$"
             |  db {
+            |    connectionPool = disabled
             |    driver = "org.h2.Driver"
             |    url = "${H2.makeConnectionUrl("foo", "bar", 42)}"
             |  }
@@ -124,7 +126,7 @@ class SupportedDBSpec extends Specification {
       PostgresQL.urlPrefix must beEqualTo("jdbc:postgresql")
       PostgresQL.driver must beEqualTo(PostgresDriver)
       PostgresQL.config_name must beEqualTo("postgresql")
-      PostgresQL.connectionTestUrl must beEqualTo("jdbc:postgresql://localhost:5432/test")
+      PostgresQL.connectionTestUrl must beEqualTo("jdbc:postgresql://localhost:5432/postgres")
       PostgresQL.defaultPort must beEqualTo(5432)
     }
     "fill in the db config correctly" in {

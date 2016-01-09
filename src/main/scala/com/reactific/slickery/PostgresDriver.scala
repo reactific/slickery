@@ -51,31 +51,61 @@ trait PostgresDriver extends ExPostgresDriver with SlickeryDriver
       ).to(_.toList)
   }
 
-  override def ensureDbExists(dbName : String, db : Database)(implicit ec: ExecutionContext) : Future[Boolean] = {
-    val statement = s"""CREATE DATABASE "$dbName"; """
-    db.run(sqlu"#$statement").map { count ⇒ true } recover {
-      case xcptn: org.postgresql.util.PSQLException ⇒
-        if (xcptn.getMessage.contains("already exists"))
+  override def createDatabase(dbName : String, ignore : Database)(implicit ec: ExecutionContext) : Future[Boolean] = {
+    val db = slick.jdbc.JdbcBackend.Database.forURL(PostgresQL.connectionTestUrl)
+    try {
+      val d = driver
+      import d.api._
+      val statement =
+        s"""DO
+        |$$do$$
+        |BEGIN
+        |CREATE EXTENSION IF NOT EXISTS dblink;
+        |IF EXISTS (SELECT 1 FROM pg_database WHERE datname = '$dbName') THEN
+        |   RAISE NOTICE 'Database already exists';
+        |ELSE
+        |   PERFORM dblink_exec('hostaddr=127.0.0.1 port=5432 dbname=postgres', 'CREATE DATABASE "$dbName"');
+        |END IF;
+        |END
+        |$$do$$""".stripMargin
+      //
+      db.run(sqlu"#$statement").map { count ⇒ true } recover {
+        case xcptn: org.postgresql.util.PSQLException if xcptn.getMessage.contains("already exists") ⇒
           true
-        else
+        case xcptn: Throwable ⇒
           throw xcptn
-      case xcptn: Throwable ⇒
-        throw xcptn
+      }
+    } finally {
+      db.close
     }
   }
 
-  override def dropDatabase(dbName : String, db : Database)(implicit ec: ExecutionContext) : Future[Boolean] = {
-    db.run { sqlu"""DROP DATABASE IF EXISTS "#$dbName"""" }.map { count ⇒ true }
+  override def dropDatabase(dbName : String, ignore : Database)(implicit ec: ExecutionContext) : Future[Boolean] = {
+    val db = slick.jdbc.JdbcBackend.Database.forURL(PostgresQL.connectionTestUrl)
+    try {
+      val d = driver
+      import d.api._
+      val statement = s"""DROP DATABASE IF EXISTS "$dbName";"""
+      db.run { sqlu"#$statement" }.map { count ⇒ true }
+    } finally {
+      db.close
+    }
   }
 
 
 
-  def makeSchema(schemaName: String) : DBIO[Int] = {
+  def createSchema(schemaName: String)(implicit ec: ExecutionContext) : DBIO[Unit] = {
     log.debug(s"Creating Postgres Schema $schemaName")
     val sql = s"""CREATE SCHEMA IF NOT EXISTS "$schemaName";
+                 |CREATE EXTENSION IF NOT EXISTS dblink;
                  |CREATE EXTENSION IF NOT EXISTS hstore;
                  |CREATE EXTENSION IF NOT EXISTS ltree ;""".stripMargin
-    sqlu"#$sql"
+    sqlu"#$sql".map { i ⇒ () }
+  }
+
+  def dropSchema(schemaName: String)(implicit ec: ExecutionContext) : DBIO[Unit] = {
+    val statement = s"""DROP SCHEMA IF EXISTS "$schemaName";"""
+    sqlu"#$statement".map { i ⇒ () }
   }
 
 }

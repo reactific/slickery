@@ -1,13 +1,15 @@
 package com.reactific.slickery
 
 import java.sql.Timestamp
-import java.time.{Duration, Instant}
+import java.time.Instant
+import java.util.concurrent.TimeUnit
 
 import com.typesafe.config.{ConfigRenderOptions, ConfigFactory, Config}
 import play.api.libs.json.{JsValue, Json}
 import slick.driver.JdbcDriver
 
 import scala.concurrent.{Future, ExecutionContext}
+import scala.concurrent.duration.Duration
 import scala.util.matching.Regex
 
 trait SlickeryDriver extends JdbcDriver with SlickeryComponent { driver: JdbcDriver =>
@@ -26,7 +28,7 @@ trait SlickeryDriver extends JdbcDriver with SlickeryComponent { driver: JdbcDri
 
   implicit lazy val durationMapper = MappedColumnType.base[Duration,Long] (
     { d => d.toMillis },
-    { l => Duration.ofMillis(l) }
+    { l => Duration(l,TimeUnit.MILLISECONDS) }
   )
 
   implicit lazy val symbolMapper = MappedColumnType.base[Symbol,String] (
@@ -45,10 +47,11 @@ trait SlickeryDriver extends JdbcDriver with SlickeryComponent { driver: JdbcDri
     { str => ConfigFactory.parseString(str) }
   )
 
-  def ensureDbExists(dbName : String, db : Database)(implicit ec: ExecutionContext) : Future[Boolean]
+  def createDatabase(dbName : String, db : Database)(implicit ec: ExecutionContext) : Future[Boolean]
 
   def dropDatabase(dbName : String, db : Database)(implicit ec: ExecutionContext) : Future[Boolean]
 
-  def makeSchema(schemaName: String) : DBIO[Int]
+  def createSchema(schemaName: String)(implicit ec: ExecutionContext) : DBIO[Unit]
+  def dropSchema(schemaName: String)(implicit ec: ExecutionContext) : DBIO[Unit]
 
 }

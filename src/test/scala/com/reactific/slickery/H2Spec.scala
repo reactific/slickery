@@ -1,15 +1,16 @@
 package com.reactific.slickery
 
-import com.reactific.helpers.{FutureHelper, LoggingHelper}
-import org.specs2.mutable.Specification
+import com.reactific.slickery.testkit.SlickerySpecification
 
-class H2Spec extends Specification with LoggingHelper with FutureHelper {
+import scala.concurrent.ExecutionContext.Implicits.global
 
-  lazy val h2IsViable : Boolean = H2.testConnection
+class H2Schema(name : String) extends CommonTestSchema[H2Driver](name, name, H2.makeDbConfigFor(name))
+
+class H2Spec extends SlickerySpecification with CommonTests {
 
   "H2" should {
-    "create test database" in {
-      h2IsViable must beTrue
+    "support common type extensions" in WithH2Schema("H2Create")(new H2Schema(_)) { schema : H2Schema ⇒
+      readAndWriteMappedTypes[H2Driver,H2Schema](schema)
     }
   }
 }
