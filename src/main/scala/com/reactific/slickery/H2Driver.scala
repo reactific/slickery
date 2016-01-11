@@ -16,10 +16,11 @@ trait H2Driver extends SlickH2Driver with SlickeryDriver { driver : JdbcDriver â
 
   override def dropDatabase(dbName : String, db : Database)(implicit ec: ExecutionContext) : Future[Boolean] = {
     Future {
-      val results = for (x <- Seq(".mv.db", ".trace.db")) yield {
+      val results = for (x <- Seq(".h2.db", ".lock.db", ".mv.db", ".trace.db")) yield {
         val f = new File(dbName + x)
         val result = f.delete()
-        log.trace(s"Deleting ${f.getCanonicalPath} returned $result")
+        if (!result)
+          log.debug(s"Deleting ${f.getCanonicalPath} failed")
         result
       }
       !results.contains(false)

@@ -12,7 +12,7 @@ import scala.concurrent.{Await, ExecutionContext}
 import scala.concurrent.duration._
 
 
-class SlickerySpecification extends HelperSpecification with BeforeAfterAll {
+trait SlickerySpecification extends HelperSpecification with BeforeAfterAll {
 
   def beforeAll : Unit = ()
   def afterAll : Unit = ()
@@ -75,26 +75,22 @@ class SlickerySpecification extends HelperSpecification with BeforeAfterAll {
     def apply[D <: SlickeryDriver, ST <: Schema[D], R](dbName: String)(createSchema: ⇒ ST)(f : (ST) ⇒ R)
       (implicit ec : ExecutionContext, ev : AsResult[R]) : Result = {
       val theSchema = createSchema
-      if (!theSchema.dbKind.testConnection) {
-        pending(s": ${theSchema.dbKind.kindName} is not currently viable.")
-      } else {
-        var created : Boolean = false
-        val result = try {
-          WithCloseable[ST, Result](theSchema) { schema ⇒
-            val future = schema.driver.createDatabase(dbName, schema.db).flatMap { wasCreated: Boolean ⇒
-              created = wasCreated
-              schema.create().map { u ⇒
-                AsResult(f(schema))
-              }
-            }
-            Await.result(future, 1.minute)
+      if (theSchema.dbKind.testConnectionLogged) {
+        With[ST, Result](theSchema) { (schema : ST) ⇒
+          val future = schema.drop().flatMap { u ⇒
+            schema.driver.dropDatabase(dbName, theSchema.db)
           }
-        } finally {
-          theSchema.db.close()
-          if (created)
-            Await.result(theSchema.driver.dropDatabase(dbName, theSchema.db), 1.minute)
+          Await.result(future, 1.minute)
+        } { schema ⇒
+          val future = schema.driver.createDatabase(dbName, schema.db).flatMap { wasCreated: Boolean ⇒
+            schema.create().map { u ⇒
+              AsResult(f(schema))
+            }
+          }
+          Await.result(future, 1.minute)
         }
-        result
+      } else {
+        pending(": database viability")
       }
     }
   }

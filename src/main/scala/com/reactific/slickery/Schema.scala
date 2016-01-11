@@ -43,7 +43,7 @@ abstract class Schema[DRVR <: SlickeryDriver](
   schemaNamePrototype: String,
   configPath : String,
   config : Config = ConfigFactory.load)
-  (implicit ec: ExecutionContext, classTag : ClassTag[DRVR]) extends SlickeryComponent with AutoCloseable {
+  (implicit ec: ExecutionContext, classTag : ClassTag[DRVR]) extends SlickeryComponent {
 
   /** The Kind of SupportedDB.
     * We look this up first because SupportedDB.forConfig can throw if the configuration is invalid or it is not for
@@ -180,10 +180,6 @@ abstract class Schema[DRVR <: SlickeryDriver](
       log.warn(s"No DDL Statements In Schema $schemaName To Drop")
       db.run { driver.dropSchema(schemaName) }
     }
-  }
-
-  final def close() : Unit = {
-    drop()
   }
 
   trait CRUDQueries[R,ID, T<:TableRow[R]] { self : TableQuery[T] =>

@@ -23,17 +23,15 @@ class SlickerySpecificationSpec extends SlickerySpecification {
       }
     }
     "implement WithSchema for SQLite" in {
-      val result = WithSQLiteSchema("WithSQLiteSchema")(n ⇒ FakeSQLiteSchema(n)) { schema ⇒
+      WithSQLiteSchema("WithSQLiteSchema")(n ⇒ FakeSQLiteSchema(n)) { schema ⇒
         success
-      }
-      result.isError must beTrue
+      } must throwA[slick.SlickException]
       pending("resolution of SQLite issue with returning a result set from an update")
     }
     "implement WithSchema for MySQL" in {
-      val result = WithMySQLSchema("WithMySQLSchema")(n ⇒ FakeMySQLSchema(n)) { schema ⇒
+      WithMySQLSchema("WithMySQLSchema")(n ⇒ FakeMySQLSchema(n)) { schema ⇒
         success
-      }
-      result.isError must beTrue
+      } must throwA[com.mysql.jdbc.exceptions.jdbc4.MySQLSyntaxErrorException]
       pending("resolution of MySQL issue with access denied")
     }
   }

@@ -1,6 +1,6 @@
 package com.reactific.slickery
 
-import java.sql.DriverManager
+import java.sql.{Connection, DriverManager}
 
 import com.typesafe.config.{ConfigFactory, Config}
 
@@ -16,9 +16,10 @@ sealed trait SupportedDB[DriverType <: SlickeryDriver] extends SlickeryComponent
     * attempt the Class.forName call while someone is holding the DriverManager's class lock because deadlock may
     * ensue. The Schema class invokes this method to ensure the JDBC Driver is loaded but may block if a Slick
     * Driver is registering the JDBC Driver or another Schema is attempting to fetch the JDBC Driver.
+    *
     * @return Class of the JDBC Driver for this supported DB
     */
-  lazy val jdbcDriverClass = classOf[DriverManager].synchronized { Class.forName(jdbcDriverClassName) }
+  lazy val jdbcDriverClass = classOf[DriverManager].synchronized {Class.forName(jdbcDriverClassName)}
 
   def slickDriver: String
 
@@ -28,13 +29,18 @@ sealed trait SupportedDB[DriverType <: SlickeryDriver] extends SlickeryComponent
 
   def config_name: String
 
-  def defaultPort : Int
+  def defaultPort: Int
 
   def connectionTestUrl: String
 
   def kindName: String = getClass.getSimpleName.replaceAll("[$]", "")
 
-  def makeConnectionUrl(dbName : String, host : String = "localhost", port : Int = defaultPort, dir: String = "") : String = {
+  def makeConnectionUrl(
+      dbName: String,
+      host: String = "localhost",
+      port: Int = defaultPort,
+      dir: String = ""
+  ): String = {
     if (dir.isEmpty)
       s"$urlPrefix://$host:$port/$dbName"
     else
@@ -43,47 +49,47 @@ sealed trait SupportedDB[DriverType <: SlickeryDriver] extends SlickeryComponent
 
   def makeDbConfigFor(
       dbName: String,
-      host : String = "localhost",
-      port : Int = defaultPort,
-      dir : String = "",
-      disableConnectionPool : Boolean = false
-  ) : Config = {
+      host: String = "localhost",
+      port: Int = defaultPort,
+      dir: String = "",
+      disableConnectionPool: Boolean = false
+  ): Config = {
     ConfigFactory.parseString(
       s"""$dbName {
          |  driver = "$slickDriver"
          |  db {
-         |    ${if(disableConnectionPool){"connectionPool = disabled"}else{""}}
+         |    ${if (disableConnectionPool) {"connectionPool = disabled"} else {""}}
          |    driver = "$jdbcDriverClassName"
          |    url = "${makeConnectionUrl(dbName, host, port, dir)}"
          |  }
-         |}""".stripMargin)
+         |}""".stripMargin
+    )
   }
 
-  def testConnection: Boolean = Try {
-    val clazz = jdbcDriverClass
-    DriverManager.getConnection(connectionTestUrl)
-  } match {
-    case Success(conn) ⇒
+  def testConnection: Try[Boolean] = {
+    Try {
+      val clazz = jdbcDriverClass
       val db = slick.jdbc.JdbcBackend.Database.forURL(connectionTestUrl)
-      try {
-        val d = driver
-        import d.api._
-        val future = db.run {
-          sql"SELECT 1".as[Int]
-        }
-        Await.result(future, 1.minute)
-        log.info(s"Connection to $kindName @$connectionTestUrl is viable")
-        true
-      } catch {
-        case xcptn: Throwable ⇒
-          log.warn(s"Connection to $kindName @$connectionTestUrl is not viable: ${xcptn.getClass.getSimpleName + ": " + xcptn.getMessage}")
-          false
-      } finally {
-        db.close
+      val d = driver
+      import d.api._
+      val future = db.run {
+        sql"SELECT 1".as[Int]
       }
-    case Failure(xcptn) ⇒
-      log.warn(s"Connection to $kindName @$connectionTestUrl is not viable: ${xcptn.getClass.getSimpleName + ": " + xcptn.getMessage}")
-      false
+      val result = Await.result(future, 1.minute)
+      result.nonEmpty
+    }
+  }
+
+  def testConnectionLogged: Boolean = {
+    testConnection match {
+      case Success(b) ⇒
+        log.info(s"Connection to $kindName @$connectionTestUrl is viable")
+        b
+      case Failure(xcptn) ⇒
+        val clazz = xcptn.getClass.getSimpleName
+        log.warn(s"Connection to $kindName @$connectionTestUrl is not viable:", xcptn)
+        false
+    }
   }
 }
 
@@ -96,8 +102,15 @@ class H2_SupportedDB extends SupportedDB[H2Driver] {
   val connectionTestUrl = "jdbc:h2:mem:test"
   val defaultPort = 0
   override def makeConnectionUrl(dbName : String, host : String = "localhost", port : Int = defaultPort, dir: String = "") : String = {
-    val directory = if (dir.isEmpty) "./" else dir
-    s"$urlPrefix:$directory$dbName"
+    dir.isEmpty match {
+      case true ⇒
+        s"$urlPrefix:./$dbName"
+      case false ⇒
+        if (dir.startsWith("./") || dir.startsWith("~/") || dir.startsWith("/"))
+          s"$urlPrefix:file:$dir/$dbName"
+        else
+          s"$urlPrefix:file:./$dir/$dbName"
+    }
   }
 
   override def makeDbConfigFor(
