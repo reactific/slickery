@@ -10,11 +10,15 @@ language: scala
 
 # The version of scala we use in our build
 scala:
-   - "2.11.7"
+  - "2.11.7"
 
 # Right now we only use JDK 8
 jdk:
-   - oraclejdk8
+  - oraclejdk8
+
+services:
+  - mysql
+  - postgresql
 
 # How to run the build. Note the use of scoverage commands
 script:
