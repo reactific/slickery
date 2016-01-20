@@ -16,7 +16,8 @@
 
 package com.reactific.slickery
 
-import java.time.{Duration, Instant}
+import java.time.format.DateTimeFormatter
+import java.time.{Clock, ZonedDateTime, Duration, Instant}
 
 import com.reactific.slickery.Storable.OIDType
 
@@ -48,6 +49,15 @@ trait Creatable extends Storable {
     }
   }
   def newerThan(d : Duration) : Boolean = !olderThan(d)
+  def createdAt(formatter : DateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME) : String = {
+    created match {
+      case Instant.EPOCH ⇒
+        "Uncreated"
+      case timestamp ⇒
+        val zdt = ZonedDateTime.ofInstant(timestamp,Clock.systemUTC().getZone)
+        formatter.format(zdt)
+    }
+  }
 }
 
 /** Modifiable objects.
@@ -65,6 +75,14 @@ trait Modifiable extends Storable {
   }
   def changedInLast(d : Duration) : Boolean = {
     changedSince(Instant.now().minus(d))
+  }
+  def modifiedAt(formatter : DateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME) : String = {
+    modified match {
+      case Instant.EPOCH ⇒ "Unmodified"
+      case timestamp ⇒
+        val zdt = ZonedDateTime.ofInstant(timestamp,Clock.systemUTC().getZone)
+        formatter.format(zdt)
+    }
   }
 }
 

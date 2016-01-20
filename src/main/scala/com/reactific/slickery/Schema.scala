@@ -183,11 +183,11 @@ abstract class Schema[DRVR <: SlickeryDriver](
   }
 
   trait CRUDQueries[R,ID, T<:TableRow[R]] { self : TableQuery[T] =>
-    type CreateResult = DriverAction[ReturningInsertActionComposer[T,Long]#SingleInsertResult,NoStream,Effect.Write]
+    type CreateResult = DBIOAction[ReturningInsertActionComposer[T,Long]#SingleInsertResult,NoStream,Effect.Write]
     type RetrieveResult =
       StreamingDriverAction[Seq[T#TableElementType],R,Effect.Read]#ResultAction[Option[R],NoStream,Effect.Read]
-    type UpdateResult = DriverAction[Int,NoStream,Effect.Write]
-    type DeleteResult = DriverAction[Int,NoStream,Effect.Write]
+    type UpdateResult = DBIOAction[Int,NoStream,Effect.Write]
+    type DeleteResult = DBIOAction[Int,NoStream,Effect.Write]
 
     def create(entity: R) : CreateResult
     def retrieve(id : ID) : RetrieveResult
@@ -245,7 +245,7 @@ abstract class Schema[DRVR <: SlickeryDriver](
   implicit lazy val configMapper = driver.configMapper
 
   trait CreatableRow[S <: Creatable] extends StorableRow[S] {
-    def created = column[Instant](nm("created"), Nullable)
+    def created = column[Instant](nm("created"), NotNull)
     def created_index = index(idx("created"), created, unique = false)
   }
 
@@ -255,17 +255,23 @@ abstract class Schema[DRVR <: SlickeryDriver](
   }
 
   trait ModifiableRow[S <: Modifiable] extends StorableRow[S] {
-    def modified = column[Instant](nm("modified"), Nullable)
+    def modified = column[Instant](nm("modified"), NotNull)
     def modified_index = index(idx("modified"), modified, unique = false)
   }
 
   trait ModifiableQuery[S <: Modifiable, T <:ModifiableRow[S]] extends StorableQuery[S,T] {
     lazy val modifiedSinceQuery = Compiled { since : Rep[Instant] => this.filter(_.modified >= since) }
+    def modifiedById(id:OIDType) = Compiled { for { c <- this if c.oid === id } yield c.modified }
     def modifiedSince(since: Instant) = modifiedSinceQuery(since).result
+    override def update(entity : S) : UpdateResult = {
+      super.update(entity).flatMap { x ⇒
+        modifiedById(entity.getId).update(Instant.now())
+      }
+    }
   }
 
   trait ExpirableRow[S <: Expirable] extends StorableRow[S] {
-    def expiresAt = column[Instant](nm("expiresAt"), Nullable)
+    def expiresAt = column[Instant](nm("expiresAt"), NotNull)
     def expiresAt_index = index(idx("expiresAt"), expiresAt, unique = false)
   }
 
