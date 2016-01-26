@@ -6,16 +6,12 @@ import com.reactific.helpers.testkit.HelperSpecification
 import com.reactific.slickery._
 import com.typesafe.config.Config
 import org.specs2.execute.{Result, AsResult}
-import org.specs2.specification.BeforeAfterAll
 
 import scala.concurrent.{Await, ExecutionContext}
 import scala.concurrent.duration._
 
 
-trait SlickerySpecification extends HelperSpecification with BeforeAfterAll {
-
-  def beforeAll : Unit = ()
-  def afterAll : Unit = ()
+trait SlickerySpecification extends HelperSpecification {
 
   def slickeryTestDir = "target/slickeryDB"
 
@@ -80,14 +76,14 @@ trait SlickerySpecification extends HelperSpecification with BeforeAfterAll {
           val future = schema.drop().flatMap { u ⇒
             schema.driver.dropDatabase(dbName, theSchema.db)
           }
-          Await.result(future, 1.minute)
+          Await.result(future, 10.seconds)
         } { schema ⇒
           val future = schema.driver.createDatabase(dbName, schema.db).flatMap { wasCreated: Boolean ⇒
             schema.create().map { u ⇒
               AsResult(f(schema))
             }
           }
-          Await.result(future, 1.minute)
+          Await.result(future, 10.seconds)
         }
       } else {
         pending(": database viability")
