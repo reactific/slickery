@@ -34,17 +34,17 @@ trait WithSchema {
     }
   }
 
-  def mapQuery[R,S](query : (SCHEMA_TYPE) ⇒ DBIOAction[R,NoStream,_])(transform: (R,ExecutionContext) ⇒ S) : Future[S] = {
+  def mapQuery[R,S](query : (SCHEMA_TYPE) ⇒ DBIOAction[R,NoStream,_])(transform: (R) ⇒ S) : Future[S] = {
     implicit val ec = executionContext
     withSchema[R](query).map { result : R ⇒
-      transform(result,ec)
+      transform(result)
     }
   }
 
-  def flatMapQuery[R,S](query : (SCHEMA_TYPE) ⇒ DBIOAction[R,NoStream,_])(transform: (R,ExecutionContext) ⇒ Future[S]) : Future[S] = {
+  def flatMapQuery[R,S](query : (SCHEMA_TYPE) ⇒ DBIOAction[R,NoStream,_])(transform: (R) ⇒ Future[S]) : Future[S] = {
     implicit val ec = executionContext
     withSchema[R](query).flatMap { result : R ⇒
-      transform(result,ec)
+      transform(result)
     }
   }
 
