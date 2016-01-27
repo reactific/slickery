@@ -13,7 +13,7 @@ class SQLiteSpec extends SlickerySpecification with CommonTests {
     "support common extended types" in {
       WithSQLiteSchema("SQLite_common")(new SQLiteSchema(_)) { schema : SQLiteSchema ⇒
         readAndWriteMappedTypes[SQLiteDriver,SQLiteSchema](schema)
-      } must throwA[java.sql.SQLException]
+      } must throwA[slick.SlickException]
       pending(": resolution of SQLite 'should not return a ResultSet' error")
     }
   }

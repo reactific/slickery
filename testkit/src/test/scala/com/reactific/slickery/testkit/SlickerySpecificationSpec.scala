@@ -31,7 +31,7 @@ class SlickerySpecificationSpec extends SlickerySpecification {
     "implement WithSchema for MySQL" in {
       WithMySQLSchema("WithMySQLSchema")(n ⇒ FakeMySQLSchema(n)) { schema ⇒
         success
-      } must throwA[com.mysql.jdbc.exceptions.jdbc4.MySQLSyntaxErrorException]
+      } must throwA[java.sql.SQLException]
       pending("resolution of MySQL issue with access denied")
     }
   }

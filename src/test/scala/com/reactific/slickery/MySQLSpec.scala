@@ -14,7 +14,7 @@ class MySQLSpec extends SlickerySpecification with CommonTests {
     "support common extension types" in {
       WithMySQLSchema("MySQL_common")(new MySQLSchema(_)){ schema : MySQLSchema ⇒
         readAndWriteMappedTypes[MySQLDriver,MySQLSchema](schema)
-      } must throwA[com.mysql.jdbc.exceptions.jdbc4.MySQLSyntaxErrorException]
+      } must throwA[java.sql.SQLException]
       pending(": resolution of MySQL 'Access denied for user ''@'localhost' to database 'mysql_common' issue")
     }
   }

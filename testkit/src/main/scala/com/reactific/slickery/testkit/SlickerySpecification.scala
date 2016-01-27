@@ -7,7 +7,7 @@ import com.reactific.slickery._
 import com.typesafe.config.Config
 import org.specs2.execute.{Result, AsResult}
 
-import scala.concurrent.{Await, ExecutionContext}
+import scala.concurrent.{Future, Await, ExecutionContext}
 import scala.concurrent.duration._
 
 
@@ -71,23 +71,23 @@ trait SlickerySpecification extends HelperSpecification {
     def apply[D <: SlickeryDriver, ST <: Schema[D], R](dbName: String)(createSchema: ⇒ ST)(f : (ST) ⇒ R)
       (implicit ec : ExecutionContext, ev : AsResult[R]) : Result = {
       val theSchema = createSchema
-      if (theSchema.dbKind.testConnectionLogged) {
-        With[ST, Result](theSchema) { (schema : ST) ⇒
-          val future = schema.drop().flatMap { u ⇒
-            schema.driver.dropDatabase(dbName, theSchema.db)
-          }
-          Await.result(future, 10.seconds)
-        } { schema ⇒
-          val future = schema.driver.createDatabase(dbName, schema.db).flatMap { wasCreated: Boolean ⇒
-            schema.create().map { u ⇒
-              AsResult(f(schema))
+      val future = theSchema.driver.createDatabase(dbName, theSchema.db).flatMap { wasCreated: Boolean ⇒
+        if (wasCreated) {
+          theSchema.create().map { u ⇒
+            try {
+              AsResult(f(theSchema))
+            } finally {
+              val future = theSchema.drop().flatMap { u ⇒
+                theSchema.driver.dropDatabase(dbName, theSchema.db)
+              }
+              Await.result(future, 10.seconds)
             }
           }
-          Await.result(future, 10.seconds)
+        } else {
+          Future.successful { failure("Failed to create schema") }
         }
-      } else {
-        pending(": database viability")
       }
+      Await.result(future, 10.seconds)
     }
   }
 
